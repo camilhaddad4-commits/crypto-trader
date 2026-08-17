@@ -1,0 +1,40 @@
+{
+  "cash": 74.87515233013829,
+  "positions": {
+    "BTC_USD": {
+      "qty": 0.00039205228456549654,
+      "cost": 25.0
+    }
+  },
+  "trades": [
+    {
+      "time": "2026-08-17",
+      "side": "buy",
+      "symbol": "BTC_USD",
+      "usd": 25.0,
+      "price": 63459.27,
+      "qty": 0.00039296859229549915,
+      "note": ""
+    },
+    {
+      "time": "2026-08-17",
+      "side": "sell",
+      "symbol": "BTC_USD",
+      "usd": 24.88,
+      "price": 63459.26,
+      "qty": 0.00039296859229549915,
+      "note": ""
+    },
+    {
+      "time": "2026-08-17",
+      "side": "buy",
+      "symbol": "BTC_USD",
+      "usd": 25,
+      "price": 63448.17,
+      "qty": 0.00039205228456549654,
+      "note": "auto:sma-cross-up"
+    }
+  ],
+  "day": "2026-08-17",
+  "day_start_equity": 100.0
+}
