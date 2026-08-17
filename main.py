@@ -11,11 +11,20 @@ Usage:
   python main.py auto [SYMBOL] [MINUTES]  # run SMA strategy on a loop (paper)
   python main.py reset                    # wipe portfolio back to $100k
 """
+import os
 import sys
 import time
 from datetime import datetime
 
-from bot import cryptocom, notify, paper, strategy
+from bot import cryptocom, notify, strategy
+from bot.notify import _load_dotenv
+
+_load_dotenv()
+if os.environ.get("LIVE") == "1":
+    from bot import live as engine
+    print(">>> LIVE MODE — real orders on Crypto.com Exchange <<<")
+else:
+    from bot import paper as engine
 
 TRADE_SIZE_USD = 25  # what `auto` puts on each buy signal (25% of the $100 account)
 
@@ -26,30 +35,30 @@ def run_cycle(symbol: str) -> None:
     # last candle is still forming — drop it so signals can't repaint
     closes = [c["close"] for c in cryptocom.candles(symbol, "1h", 300)][:-1]
     sig = strategy.signal(closes)
-    pos = paper.summary()["positions"].get(symbol)
+    pos = engine.summary()["positions"].get(symbol)
 
     if pos:  # protective exits first: stop-loss and take-profit outrank the strategy signal
         entry = pos["cost"] / pos["qty"]
         bid = cryptocom.ticker(symbol)["bid"]
         if bid <= entry * (1 - strategy.STOP_LOSS_PCT):
-            t = paper.sell(symbol, note=f"auto:stop-loss entry={entry:,.2f}")
+            t = engine.sell(symbol, note=f"auto:stop-loss entry={entry:,.2f}")
             print(f"[{now}] STOP-LOSS sold {t['qty']:.6f} @ {t['price']:,.2f}")
-            notify.trade_alert(t, paper.equity())
+            notify.trade_alert(t, engine.equity())
             pos = None
         elif bid >= entry * (1 + strategy.TAKE_PROFIT_PCT):
-            t = paper.sell(symbol, note=f"auto:take-profit entry={entry:,.2f}")
+            t = engine.sell(symbol, note=f"auto:take-profit entry={entry:,.2f}")
             print(f"[{now}] TAKE-PROFIT sold {t['qty']:.6f} @ {t['price']:,.2f}")
-            notify.trade_alert(t, paper.equity())
+            notify.trade_alert(t, engine.equity())
             pos = None
 
     if sig == "buy" and not pos:
-        t = paper.buy(symbol, TRADE_SIZE_USD, note="auto:sma-cross-up")
+        t = engine.buy(symbol, TRADE_SIZE_USD, note="auto:sma-cross-up")
         print(f"[{now}] BUY  {t['qty']:.6f} @ {t['price']:,.2f}")
-        notify.trade_alert(t, paper.equity())
+        notify.trade_alert(t, engine.equity())
     elif sig == "sell" and pos:
-        t = paper.sell(symbol, note="auto:sma-cross-down")
+        t = engine.sell(symbol, note="auto:sma-cross-down")
         print(f"[{now}] SELL {t['qty']:.6f} @ {t['price']:,.2f}")
-        notify.trade_alert(t, paper.equity())
+        notify.trade_alert(t, engine.equity())
     else:
         print(f"[{now}] hold (signal={sig}, position={bool(pos)}, last closed={closes[-1]:,.2f})")
 
@@ -64,13 +73,13 @@ def main() -> None:
         print(f"{symbol}  bid {t['bid']:,.2f}  ask {t['ask']:,.2f}")
 
     elif cmd == "account":
-        s = paper.summary()
+        s = engine.summary()
         print(f"equity  ${s['equity']:,.2f}")
         print(f"cash    ${s['cash']:,.2f}")
         print(f"P/L     ${s['pnl']:,.2f}")
 
     elif cmd == "positions":
-        s = paper.summary()
+        s = engine.summary()
         if not s["positions"]:
             print("no open positions")
         for sym, p in s["positions"].items():
@@ -79,16 +88,16 @@ def main() -> None:
                   f"value ${value:,.2f}  P/L ${value - p['cost']:,.2f}")
 
     elif cmd == "buy":
-        t = paper.buy(args[1], float(args[2]))
+        t = engine.buy(args[1], float(args[2]))
         print(f"bought {t['qty']:.6f} {t['symbol']} @ {t['price']:,.2f} (${t['usd']:,.2f})")
 
     elif cmd == "sell":
         usd = float(args[2]) if len(args) > 2 else None
-        t = paper.sell(args[1], usd)
+        t = engine.sell(args[1], usd)
         print(f"sold {t['qty']:.6f} {t['symbol']} @ {t['price']:,.2f} (${t['usd']:,.2f})")
 
     elif cmd == "trades":
-        for t in paper.summary()["trades"]:
+        for t in engine.summary()["trades"]:
             print(f"{t['time']}  {t['side']:4} {t['symbol']}  ${t['usd']:>10,.2f} @ {t['price']:,.2f}  {t['note']}")
 
     elif cmd == "backtest":
@@ -125,9 +134,9 @@ def main() -> None:
         # manual exit, triggered from the dashboard via the close-position workflow
         symbol = args[1] if len(args) > 1 else "BTC_USD"
         try:
-            t = paper.sell(symbol, note="manual:dashboard-close")
+            t = engine.sell(symbol, note="manual:dashboard-close")
             print(f"closed {t['qty']:.6f} {t['symbol']} @ {t['price']:,.2f} (${t['usd']:,.2f})")
-            notify.trade_alert(t, paper.equity())
+            notify.trade_alert(t, engine.equity())
         except SystemExit as e:
             print(f"nothing to close: {e}")
 
@@ -141,8 +150,8 @@ def main() -> None:
             notify.send(f"🛑 <b>Bot halted this cycle</b>\n{e}")
 
     elif cmd == "reset":
-        paper.reset()
-        print(f"portfolio reset to ${paper.STARTING_CASH:,.2f}")
+        engine.reset()
+        print(f"portfolio reset to ${engine.STARTING_CASH:,.2f}")
 
     else:
         print(__doc__)
