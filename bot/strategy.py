@@ -7,7 +7,8 @@ from bot import cryptocom
 
 FAST = 20
 SLOW = 50
-STOP_LOSS_PCT = 0.03  # exit any position 3% below entry, no questions asked
+STOP_LOSS_PCT = 0.03    # exit any position 3% below entry, no questions asked
+TAKE_PROFIT_PCT = 0.06  # bank the win 6% above entry — 2:1 reward-to-risk vs the stop
 
 
 def sma(values: list[float], n: int) -> float:
@@ -40,6 +41,12 @@ def backtest(symbol: str = "BTC_USD", timeframe: str = "4h", count: int = 300,
             stop_price = entry * (1 - STOP_LOSS_PCT)
             cash = qty * stop_price * (1 - fee_rate)
             trades.append(("stop", stop_price))
+            qty = 0.0
+            continue
+        if qty > 0 and candles[i]["high"] >= entry * (1 + TAKE_PROFIT_PCT):
+            tp_price = entry * (1 + TAKE_PROFIT_PCT)
+            cash = qty * tp_price * (1 - fee_rate)
+            trades.append(("tp", tp_price))
             qty = 0.0
             continue
         sig = signal(closes[: i + 1])

@@ -133,6 +133,10 @@
                 transition: transform 1.4s var(--ease); }
   .meter-labels { display: flex; justify-content: space-between;
                   font-size: 10px; color: rgba(255,255,255,.35); margin-top: 6px; }
+  .meter-track { position: relative; }
+  .meter-tick { position: absolute; top: -3px; bottom: -3px; width: 2px;
+                background: rgba(255,255,255,.55); border-radius: 1px;
+                transition: left 1.4s var(--ease); }
 
   /* trades */
   .trade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
@@ -216,8 +220,22 @@
       <div class="stat-value num" id="posValue">—</div>
       <div class="hint" id="posDetail">—</div>
       <div class="meter">
-        <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
-        <div class="meter-labels"><span id="stopLbl">stop</span><span id="entryLbl">entry</span></div>
+        <div class="meter-track">
+          <div class="meter-fill" id="meterFill"></div>
+          <div class="meter-tick" id="entryTick" title="entry"></div>
+        </div>
+        <div class="meter-labels">
+          <span id="stopLbl" style="color:var(--red)">stop</span>
+          <span id="entryLbl">entry</span>
+          <span id="tpLbl" style="color:var(--green)">TP</span>
+        </div>
+        <div class="hint" id="tpProgress" style="margin-top:10px">—</div>
+      </div>
+      <div style="margin-top:16px">
+        <a class="refresh" style="text-decoration:none"
+           href="https://github.com/camilhaddad4-commits/crypto-trader/actions/workflows/close-position.yml">
+          Close position <span class="icon">✕</span></a>
+        <div class="hint" style="margin-top:8px">opens GitHub → tap "Run workflow" to confirm — your GitHub login is the safety</div>
       </div>
     </div></div>
 
@@ -236,7 +254,7 @@
 
 <script>
 const RAW = "https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/portfolio.json";
-const STOP = 0.03, START = 100;
+const STOP = 0.03, TP = 0.06, START = 100;
 const $ = id => document.getElementById(id);
 const usd = n => "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
@@ -298,14 +316,23 @@ async function load() {
     if (entries.length) {
       const [sym, p] = entries[0];
       posValue = p.qty * price;
-      const entry = p.cost / p.qty, stop = entry * (1 - STOP), upl = posValue - p.cost;
+      const entry = p.cost / p.qty, stop = entry * (1 - STOP), tp = entry * (1 + TP), upl = posValue - p.cost;
       $("posCard").style.display = "";
       $("posValue").innerHTML = `${sym.replace("_", "/")} · ${usd(posValue)} <span style="color:${upl >= 0 ? "var(--green)" : "var(--red)"};font-size:15px">${upl >= 0 ? "+" : "−"}${usd(Math.abs(upl)).slice(1)}</span>`;
       $("posDetail").textContent = `${p.qty.toFixed(6)} BTC @ entry ${usd(entry)}`;
       $("stopLbl").textContent = "stop " + usd(stop);
       $("entryLbl").textContent = "entry " + usd(entry);
-      const range = Math.max(entry * 1.03 - stop, 1e-9);
-      $("meterFill").style.transform = `scaleX(${Math.min(Math.max((price - stop) / range, 0.02), 1)})`;
+      $("tpLbl").textContent = "TP " + usd(tp);
+      const range = tp - stop;
+      const frac = Math.min(Math.max((price - stop) / range, 0.015), 1);
+      $("meterFill").style.transform = `scaleX(${frac})`;
+      $("entryTick").style.left = ((entry - stop) / range * 100) + "%";
+      const toTP = tp - price, tpPct = Math.max((price - entry) / (tp - entry) * 100, 0);
+      $("tpProgress").innerHTML = price >= tp
+        ? `🎯 take-profit reached — bot will close on its next cycle`
+        : price >= entry
+          ? `<b style="color:var(--green)">${tpPct.toFixed(1)}%</b> of the way to TP · ${usd(toTP)} to go · risk ${usd(price - stop)} above stop`
+          : `below entry · ${usd(toTP)} from TP · <b style="color:var(--red)">${usd(price - stop)}</b> above the stop`;
     } else {
       $("posCard").style.display = "none";
     }

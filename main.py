@@ -28,12 +28,17 @@ def run_cycle(symbol: str) -> None:
     sig = strategy.signal(closes)
     pos = paper.summary()["positions"].get(symbol)
 
-    if pos:  # stop-loss first: protection outranks strategy
+    if pos:  # protective exits first: stop-loss and take-profit outrank the strategy signal
         entry = pos["cost"] / pos["qty"]
         bid = cryptocom.ticker(symbol)["bid"]
         if bid <= entry * (1 - strategy.STOP_LOSS_PCT):
             t = paper.sell(symbol, note=f"auto:stop-loss entry={entry:,.2f}")
             print(f"[{now}] STOP-LOSS sold {t['qty']:.6f} @ {t['price']:,.2f}")
+            notify.trade_alert(t, paper.equity())
+            pos = None
+        elif bid >= entry * (1 + strategy.TAKE_PROFIT_PCT):
+            t = paper.sell(symbol, note=f"auto:take-profit entry={entry:,.2f}")
+            print(f"[{now}] TAKE-PROFIT sold {t['qty']:.6f} @ {t['price']:,.2f}")
             notify.trade_alert(t, paper.equity())
             pos = None
 
@@ -115,6 +120,16 @@ def main() -> None:
                 failures += 1
                 print(f"ERROR ({failures} consecutive): {e} — retrying next cycle")
             time.sleep(minutes * 60)
+
+    elif cmd == "close":
+        # manual exit, triggered from the dashboard via the close-position workflow
+        symbol = args[1] if len(args) > 1 else "BTC_USD"
+        try:
+            t = paper.sell(symbol, note="manual:dashboard-close")
+            print(f"closed {t['qty']:.6f} {t['symbol']} @ {t['price']:,.2f} (${t['usd']:,.2f})")
+            notify.trade_alert(t, paper.equity())
+        except SystemExit as e:
+            print(f"nothing to close: {e}")
 
     elif cmd == "auto-once":
         # single cycle for scheduled runners (GitHub Actions cron)
