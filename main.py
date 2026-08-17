@@ -33,7 +33,7 @@ def run_cycle(symbol: str) -> None:
     """One trading cycle: check stop-loss, then act on the SMA signal. Raises on failure."""
     now = datetime.now().strftime("%H:%M:%S")
     # last candle is still forming — drop it so signals can't repaint
-    closes = [c["close"] for c in cryptocom.candles(symbol, "1h", 300)][:-1]
+    closes = [c["close"] for c in cryptocom.candles(symbol, strategy.TIMEFRAME, 300)][:-1]
     sig = strategy.signal(closes)
     pos = engine.summary()["positions"].get(symbol)
 
@@ -111,7 +111,7 @@ def main() -> None:
     elif cmd == "auto":
         symbol = args[1] if len(args) > 1 else "BTC_USD"
         minutes = float(args[2]) if len(args) > 2 else 15
-        print(f"auto-trading {symbol} every {minutes}m — SMA{strategy.FAST}/{strategy.SLOW} on closed 1h candles, "
+        print(f"auto-trading {symbol} every {minutes}m — SMA{strategy.FAST}/{strategy.SLOW} on closed {strategy.TIMEFRAME} candles, "
               f"${TRADE_SIZE_USD}/trade, {strategy.STOP_LOSS_PCT:.0%} stop-loss, Ctrl+C to stop")
         failures = 0
         while True:

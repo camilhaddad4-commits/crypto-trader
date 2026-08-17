@@ -5,8 +5,12 @@ it crosses below. Dumb but honest — the point is discipline, not prophecy.
 """
 from bot import cryptocom
 
-FAST = 20
-SLOW = 50
+# Sweep 2026-08-17 (scripts/sweep.py): intraday SMA loses to fees on every combo;
+# 5/40 on DAILY candles was positive on both BTC (+14.9%) and ETH (+6.6%) while
+# buy&hold lost 23-37%. Small sample (~8-10 trades) — paper trading validates.
+FAST = 5
+SLOW = 40
+TIMEFRAME = "1D"
 STOP_LOSS_PCT = 0.03    # exit any position 3% below entry, no questions asked
 TAKE_PROFIT_PCT = 0.06  # bank the win 6% above entry — 2:1 reward-to-risk vs the stop
 
@@ -15,12 +19,13 @@ def sma(values: list[float], n: int) -> float:
     return sum(values[-n:]) / n
 
 
-def signal(closes: list[float]) -> str:
+def signal(closes: list[float], fast: int = None, slow: int = None) -> str:
     """'buy', 'sell', or 'hold' based on the last two candles' MA relationship."""
-    if len(closes) < SLOW + 1:
+    fast, slow = fast or FAST, slow or SLOW
+    if len(closes) < slow + 1:
         return "hold"
-    fast_now, slow_now = sma(closes, FAST), sma(closes, SLOW)
-    fast_prev, slow_prev = sma(closes[:-1], FAST), sma(closes[:-1], SLOW)
+    fast_now, slow_now = sma(closes, fast), sma(closes, slow)
+    fast_prev, slow_prev = sma(closes[:-1], fast), sma(closes[:-1], slow)
     if fast_prev <= slow_prev and fast_now > slow_now:
         return "buy"
     if fast_prev >= slow_prev and fast_now < slow_now:
@@ -29,13 +34,20 @@ def signal(closes: list[float]) -> str:
 
 
 def backtest(symbol: str = "BTC_USD", timeframe: str = "4h", count: int = 300,
-             starting_cash: float = 100.0, fee_rate: float = 0.005) -> dict:
-    """Replay the strategy over historical candles. All-in/all-out sizing."""
-    candles = cryptocom.candles(symbol, timeframe, count)[:-1]  # last candle is still forming — drop it
+             starting_cash: float = 100.0, fee_rate: float = 0.005,
+             fast: int = None, slow: int = None, candles: list | None = None) -> dict:
+    """Replay the strategy over historical candles. All-in/all-out sizing.
+
+    Pass `candles` to reuse pre-fetched data (parameter sweeps), and fast/slow
+    to test alternative SMA lengths without touching the module defaults.
+    """
+    fast, slow = fast or FAST, slow or SLOW
+    if candles is None:
+        candles = cryptocom.candles(symbol, timeframe, count)[:-1]  # last candle is still forming — drop it
     closes = [c["close"] for c in candles]
     cash, qty, entry, trades = starting_cash, 0.0, 0.0, []
 
-    for i in range(SLOW + 1, len(closes)):
+    for i in range(slow + 1, len(closes)):
         price = closes[i]
         if qty > 0 and candles[i]["low"] <= entry * (1 - STOP_LOSS_PCT):
             stop_price = entry * (1 - STOP_LOSS_PCT)
@@ -49,7 +61,7 @@ def backtest(symbol: str = "BTC_USD", timeframe: str = "4h", count: int = 300,
             trades.append(("tp", tp_price))
             qty = 0.0
             continue
-        sig = signal(closes[: i + 1])
+        sig = signal(closes[: i + 1], fast, slow)
         if sig == "buy" and cash > 0:
             qty = (cash / price) * (1 - fee_rate)
             entry = price
@@ -61,7 +73,7 @@ def backtest(symbol: str = "BTC_USD", timeframe: str = "4h", count: int = 300,
             qty = 0.0
 
     final = cash + qty * closes[-1]
-    hold_final = starting_cash * (closes[SLOW + 1] and closes[-1] / closes[SLOW + 1])
+    hold_final = starting_cash * (closes[slow + 1] and closes[-1] / closes[slow + 1])
     return {
         "symbol": symbol, "timeframe": timeframe, "candles": len(closes),
         "trades": len(trades), "start": starting_cash,
