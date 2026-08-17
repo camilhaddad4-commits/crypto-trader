@@ -278,7 +278,7 @@
 
 <script>
 const RAW = "https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/portfolio.json";
-const STOP = 0.03, TP = 0.06, START = 100;
+const STOP = 0.03, TP = 0.06, START = 100, FEE = 0.005;
 const $ = id => document.getElementById(id);
 const usd = n => "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
@@ -362,22 +362,25 @@ function renderPrices(price) {
   if (entries.length) {
     const [sym, p] = entries[0];
     posValue = p.qty * price;
-    const entry = p.cost / p.qty, stop = entry * (1 - STOP), tp = entry * (1 + TP), upl = posValue - p.cost;
+    // basis = fee-inclusive cost per BTC (what the bot's stop/TP anchor on);
+    // fill = the actual traded price; breakeven = covers buy fee + future sell fee
+    const basis = p.cost / p.qty, fill = basis * (1 - FEE), breakeven = basis / (1 - FEE);
+    const stop = basis * (1 - STOP), tp = basis * (1 + TP), upl = posValue - p.cost;
     $("posCard").style.display = "";
     $("posValue").innerHTML = `${sym.replace("_", "/")} · ${usd(posValue)} <span style="color:${upl >= 0 ? "var(--green)" : "var(--red)"};font-size:15px">${upl >= 0 ? "+" : "−"}${usd(Math.abs(upl)).slice(1)}</span>`;
-    $("posDetail").textContent = `${p.qty.toFixed(6)} BTC @ entry ${usd(entry)}`;
+    $("posDetail").textContent = `${p.qty.toFixed(6)} BTC · filled @ ${usd(fill)} · break-even ${usd(breakeven)} (fees)`;
     $("stopLbl").textContent = "stop " + usd(stop);
-    $("entryLbl").textContent = "entry " + usd(entry);
+    $("entryLbl").textContent = "b/e " + usd(breakeven);
     $("tpLbl").textContent = "TP " + usd(tp);
     const range = tp - stop;
     $("meterFill").style.transform = `scaleX(${Math.min(Math.max((price - stop) / range, 0.015), 1)})`;
-    $("entryTick").style.left = ((entry - stop) / range * 100) + "%";
-    const toTP = tp - price, tpPct = Math.max((price - entry) / (tp - entry) * 100, 0);
+    $("entryTick").style.left = ((breakeven - stop) / range * 100) + "%";
+    const toTP = tp - price, tpPct = Math.max((price - breakeven) / (tp - breakeven) * 100, 0);
     $("tpProgress").innerHTML = price >= tp
       ? `🎯 take-profit reached — bot will close on its next cycle`
-      : price >= entry
+      : price >= breakeven
         ? `<b style="color:var(--green)">${tpPct.toFixed(1)}%</b> of the way to TP · ${usd(toTP)} to go · risk ${usd(price - stop)} above stop`
-        : `below entry · ${usd(toTP)} from TP · <b style="color:var(--red)">${usd(price - stop)}</b> above the stop`;
+        : `below break-even · ${usd(toTP)} from TP · <b style="color:var(--red)">${usd(price - stop)}</b> above the stop`;
   } else {
     $("posCard").style.display = "none";
   }
