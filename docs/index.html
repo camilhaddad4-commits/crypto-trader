@@ -65,6 +65,12 @@
   .subtitle { color: rgba(255,255,255,.4); font-size: 13px; margin-top: 4px; }
   .subtitle a { color: rgba(255,255,255,.6); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.2); }
 
+  /* hero mini-stats */
+  .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 26px;
+               padding-top: 20px; border-top: 1px solid rgba(255,255,255,.07); }
+  .mini .label { margin-bottom: 4px; }
+  .mini-value { font-family: "Space Grotesk"; font-weight: 600; font-size: 19px; }
+
   /* mission banner */
   .mission { margin-top: 18px; display: inline-block; text-align: left;
              border: 1px solid rgba(52,211,153,.2); border-radius: 18px;
@@ -202,6 +208,12 @@
         <div class="label">Equity</div>
         <div class="hero-value num" id="equity">$0.00</div>
         <span class="delta up" id="pnl">—</span>
+        <div class="mini-grid">
+          <div class="mini"><div class="label">Round trips</div><div class="mini-value num" id="statTrades">—</div></div>
+          <div class="mini"><div class="label">Win rate</div><div class="mini-value num" id="statWin">—</div></div>
+          <div class="mini"><div class="label">Realized P/L</div><div class="mini-value num" id="statRealized">—</div></div>
+          <div class="mini"><div class="label">Fees paid</div><div class="mini-value num" id="statFees">—</div></div>
+        </div>
       </div>
     </div>
 
@@ -378,6 +390,18 @@ async function load() {
     countUp($("cash"), pf.cash);
     lastPF = pf;
     renderPrices(price);
+
+    // hero mini-stats: pair each sell with the buys before it (single-position system)
+    let cost = 0, roundTrips = 0, wins = 0, realized = 0, fees = 0;
+    for (const t of pf.trades || []) {
+      fees += t.usd * 0.005;
+      if (t.side === "buy") cost += t.usd;
+      else { const pl = t.usd - cost; realized += pl; roundTrips++; if (pl > 0) wins++; cost = 0; }
+    }
+    $("statTrades").textContent = roundTrips;
+    $("statWin").textContent = roundTrips ? (wins / roundTrips * 100).toFixed(0) + "%" : "—";
+    $("statRealized").innerHTML = `<span style="color:${realized >= 0 ? "var(--green)" : "var(--red)"}">${realized >= 0 ? "+" : "−"}${usd(Math.abs(realized)).slice(1)}</span>`;
+    $("statFees").textContent = usd(fees);
 
     const box = $("trades"); box.innerHTML = "";
     const trades = (pf.trades || []).slice().reverse();
