@@ -90,6 +90,12 @@
                   transform-origin: left; transform: scaleX(0);
                   transition: transform 1.4s var(--ease); }
   .mission-sub { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 6px; }
+  .mission-track { position: relative; }
+  .m-tick { position: absolute; top: -2px; bottom: -2px; width: 1px; background: rgba(255,255,255,.22); }
+  .m-marks { position: relative; height: 13px; margin-top: 5px; font-size: 9px; color: rgba(255,255,255,.35); }
+  .m-marks span { position: absolute; transform: translateX(-50%); }
+  .m-marks span:first-child { transform: none; }
+  .m-marks span:last-child { transform: translateX(-100%); color: var(--green); }
 
   /* ---------- double-bezel glass cards ---------- */
   .shell {
@@ -197,7 +203,13 @@
     <div class="subtitle">BTC/USD · SMA 5/40 daily · <a href="https://github.com/camilhaddad4-commits/crypto-trader/actions">bot activity ↗</a></div>
     <div class="mission">
       <div class="mission-text">THE MISSION · MILLIONAIRES BY THE END OF 2026</div>
-      <div class="mission-track"><div class="mission-fill" id="missionFill"></div></div>
+      <div class="mission-track">
+        <div class="mission-fill" id="missionFill"></div>
+        <div class="m-tick" style="left:25%"></div><div class="m-tick" style="left:50%"></div><div class="m-tick" style="left:75%"></div>
+      </div>
+      <div class="m-marks num">
+        <span style="left:0%">$100</span><span style="left:25%">$1k</span><span style="left:50%">$10k</span><span style="left:75%">$100k</span><span style="left:100%">$1M</span>
+      </div>
       <div class="mission-sub num" id="missionSub">$0 of $1,000,000</div>
     </div>
   </header>
@@ -375,9 +387,12 @@ function renderPrices(price) {
   const pd = $("pnl");
   pd.className = "delta " + (pnl >= 0 ? "up" : "down");
   pd.textContent = `${pnl >= 0 ? "▲" : "▼"} ${usd(Math.abs(pnl))} · ${(pnl / START * 100).toFixed(2)}% all-time`;
-  const GOAL = 1_000_000;
-  $("missionFill").style.transform = `scaleX(${Math.max(equity / GOAL, 0.004)})`;
-  $("missionSub").textContent = `${usd(equity)} of $1,000,000 · ${(equity / GOAL * 100).toFixed(4)}% there`;
+  // log scale: $100 -> $1M is 4 decades, each 10x step earns a quarter of the bar
+  const frac = Math.max(Math.log10(Math.max(equity, 100) / 100) / 4, 0.004);
+  $("missionFill").style.transform = `scaleX(${frac})`;
+  const MILESTONES = [[1_000, "$1k"], [10_000, "$10k"], [100_000, "$100k"], [1_000_000, "$1M"]];
+  const next = MILESTONES.find(([v]) => equity < v) || MILESTONES[3];
+  $("missionSub").textContent = `${usd(equity)} · next milestone ${next[1]} (${usd(next[0] - equity)} to go)`;
 }
 
 async function load() {
