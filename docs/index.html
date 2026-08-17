@@ -301,6 +301,73 @@ async function fetchPrice() {
   }
 }
 
+/* ---- live price stream: Crypto.com public WebSocket, ticks without refreshing ---- */
+let lastPF = null, lastPrice = null;
+function startStream() {
+  let ws;
+  try { ws = new WebSocket("wss://stream.crypto.com/exchange/v1/market"); } catch { return; }
+  ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: "subscribe",
+    params: { channels: ["ticker.BTC_USD"] } }));
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.method === "public/heartbeat") {
+      ws.send(JSON.stringify({ id: m.id, method: "public/respond-heartbeat" }));
+      return;
+    }
+    const t = m.result?.data?.[0];
+    if (t && lastPF) {
+      const p = parseFloat(t.a);
+      const el = $("price");
+      el.style.transition = "color .4s";
+      el.style.color = lastPrice == null || p === lastPrice ? "" : p > lastPrice ? "var(--green)" : "var(--red)";
+      renderPrices(p);
+      lastPrice = p;
+    }
+  };
+  ws.onclose = () => setTimeout(startStream, 3000);  // auto-reconnect
+  ws.onerror = () => ws.close();
+}
+
+/* re-renders everything derived from the live price, without refetching the portfolio */
+function renderPrices(price) {
+  const pf = lastPF;
+  $("price").textContent = usd(price);
+
+  let posValue = 0;
+  const entries = Object.entries(pf.positions || {});
+  if (entries.length) {
+    const [sym, p] = entries[0];
+    posValue = p.qty * price;
+    const entry = p.cost / p.qty, stop = entry * (1 - STOP), tp = entry * (1 + TP), upl = posValue - p.cost;
+    $("posCard").style.display = "";
+    $("posValue").innerHTML = `${sym.replace("_", "/")} · ${usd(posValue)} <span style="color:${upl >= 0 ? "var(--green)" : "var(--red)"};font-size:15px">${upl >= 0 ? "+" : "−"}${usd(Math.abs(upl)).slice(1)}</span>`;
+    $("posDetail").textContent = `${p.qty.toFixed(6)} BTC @ entry ${usd(entry)}`;
+    $("stopLbl").textContent = "stop " + usd(stop);
+    $("entryLbl").textContent = "entry " + usd(entry);
+    $("tpLbl").textContent = "TP " + usd(tp);
+    const range = tp - stop;
+    $("meterFill").style.transform = `scaleX(${Math.min(Math.max((price - stop) / range, 0.015), 1)})`;
+    $("entryTick").style.left = ((entry - stop) / range * 100) + "%";
+    const toTP = tp - price, tpPct = Math.max((price - entry) / (tp - entry) * 100, 0);
+    $("tpProgress").innerHTML = price >= tp
+      ? `🎯 take-profit reached — bot will close on its next cycle`
+      : price >= entry
+        ? `<b style="color:var(--green)">${tpPct.toFixed(1)}%</b> of the way to TP · ${usd(toTP)} to go · risk ${usd(price - stop)} above stop`
+        : `below entry · ${usd(toTP)} from TP · <b style="color:var(--red)">${usd(price - stop)}</b> above the stop`;
+  } else {
+    $("posCard").style.display = "none";
+  }
+
+  const equity = pf.cash + posValue, pnl = equity - START;
+  $("equity").textContent = usd(equity);
+  const pd = $("pnl");
+  pd.className = "delta " + (pnl >= 0 ? "up" : "down");
+  pd.textContent = `${pnl >= 0 ? "▲" : "▼"} ${usd(Math.abs(pnl))} · ${(pnl / START * 100).toFixed(2)}% all-time`;
+  const GOAL = 1_000_000;
+  $("missionFill").style.transform = `scaleX(${Math.max(equity / GOAL, 0.004)})`;
+  $("missionSub").textContent = `${usd(equity)} of $1,000,000 · ${(equity / GOAL * 100).toFixed(4)}% there`;
+}
+
 async function load() {
   const btn = $("refreshBtn"); btn.classList.add("busy");
   try {
@@ -308,43 +375,9 @@ async function load() {
       fetch(RAW + "?t=" + Date.now()).then(r => r.json()),
       fetchPrice(),
     ]);
-    countUp($("price"), price);
     countUp($("cash"), pf.cash);
-
-    let posValue = 0;
-    const entries = Object.entries(pf.positions || {});
-    if (entries.length) {
-      const [sym, p] = entries[0];
-      posValue = p.qty * price;
-      const entry = p.cost / p.qty, stop = entry * (1 - STOP), tp = entry * (1 + TP), upl = posValue - p.cost;
-      $("posCard").style.display = "";
-      $("posValue").innerHTML = `${sym.replace("_", "/")} · ${usd(posValue)} <span style="color:${upl >= 0 ? "var(--green)" : "var(--red)"};font-size:15px">${upl >= 0 ? "+" : "−"}${usd(Math.abs(upl)).slice(1)}</span>`;
-      $("posDetail").textContent = `${p.qty.toFixed(6)} BTC @ entry ${usd(entry)}`;
-      $("stopLbl").textContent = "stop " + usd(stop);
-      $("entryLbl").textContent = "entry " + usd(entry);
-      $("tpLbl").textContent = "TP " + usd(tp);
-      const range = tp - stop;
-      const frac = Math.min(Math.max((price - stop) / range, 0.015), 1);
-      $("meterFill").style.transform = `scaleX(${frac})`;
-      $("entryTick").style.left = ((entry - stop) / range * 100) + "%";
-      const toTP = tp - price, tpPct = Math.max((price - entry) / (tp - entry) * 100, 0);
-      $("tpProgress").innerHTML = price >= tp
-        ? `🎯 take-profit reached — bot will close on its next cycle`
-        : price >= entry
-          ? `<b style="color:var(--green)">${tpPct.toFixed(1)}%</b> of the way to TP · ${usd(toTP)} to go · risk ${usd(price - stop)} above stop`
-          : `below entry · ${usd(toTP)} from TP · <b style="color:var(--red)">${usd(price - stop)}</b> above the stop`;
-    } else {
-      $("posCard").style.display = "none";
-    }
-
-    const equity = pf.cash + posValue, pnl = equity - START;
-    countUp($("equity"), equity);
-    const GOAL = 1_000_000;
-    $("missionFill").style.transform = `scaleX(${Math.max(equity / GOAL, 0.004)})`;
-    $("missionSub").textContent = `${usd(equity)} of $1,000,000 · ${(equity / GOAL * 100).toFixed(4)}% there`;
-    const pd = $("pnl");
-    pd.className = "delta " + (pnl >= 0 ? "up" : "down");
-    pd.textContent = `${pnl >= 0 ? "▲" : "▼"} ${usd(Math.abs(pnl))} · ${(pnl / START * 100).toFixed(2)}% all-time`;
+    lastPF = pf;
+    renderPrices(price);
 
     const box = $("trades"); box.innerHTML = "";
     const trades = (pf.trades || []).slice().reverse();
@@ -360,7 +393,7 @@ async function load() {
       row.addEventListener("click", () => row.classList.toggle("open"));
       box.appendChild(row);
     }
-    $("status").textContent = "updated " + new Date().toLocaleTimeString() + " · state can lag the newest commit by a few minutes";
+    $("status").textContent = "⚡ live price stream · trades sync " + new Date().toLocaleTimeString() + " · state can lag the newest commit by a few minutes";
   } catch (e) {
     $("status").textContent = "failed to load: " + e.message;
   }
@@ -369,6 +402,7 @@ async function load() {
 
 $("refreshBtn").addEventListener("click", load);
 load();
+startStream();
 setInterval(load, 60_000);
 </script>
 </body>
