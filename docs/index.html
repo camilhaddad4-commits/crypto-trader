@@ -252,9 +252,14 @@ function countUp(el, target) {
 }
 
 async function fetchPrice() {
-  // Kraken's public API allows browser CORS; Crypto.com's doesn't. They track within ~$1-2.
-  const j = await (await fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD")).json();
-  return parseFloat(Object.values(j.result)[0].b[0]);
+  // Same source as the exchange UI so the numbers match. Kraken only as fallback.
+  try {
+    const j = await (await fetch("https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name=BTC_USD")).json();
+    return parseFloat(j.result.data[0].a);  // "a" = last trade price, what the exchange displays
+  } catch {
+    const j = await (await fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD")).json();
+    return parseFloat(Object.values(j.result)[0].b[0]);
+  }
 }
 
 async function load() {
