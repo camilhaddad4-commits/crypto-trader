@@ -32,25 +32,26 @@
   .orb3 { width: 30vmax; height: 30vmax; top: 40%; left: 60%;
           background: radial-gradient(circle, rgba(56,189,248,.25), transparent 65%); }
   .dollar {
-    position: absolute; bottom: -12vh;
+    position: absolute; top: -12vh;
     font-family: "Space Grotesk", monospace; font-weight: 700;
-    color: rgba(255,255,255,.05);
-    animation: rise linear infinite;
+    color: rgba(52, 211, 153, var(--glow, .10));
+    text-shadow: 0 0 8px rgba(52,211,153,.35), 0 0 22px rgba(52,211,153,.15);
+    animation: fall linear infinite;
     will-change: transform;
     user-select: none;
   }
-  @keyframes rise {
-    from { transform: translateY(0) rotate(var(--tilt)) scale(1); opacity: 0; }
-    8%   { opacity: 1; }
-    85%  { opacity: 1; }
-    to   { transform: translateY(-118vh) rotate(calc(var(--tilt) * -1)) scale(1.15); opacity: 0; }
+  @keyframes fall {
+    from { transform: translateY(0) rotate(var(--tilt)); opacity: 0; }
+    6%   { opacity: 1; }
+    88%  { opacity: 1; }
+    to   { transform: translateY(122vh) rotate(calc(var(--tilt) * -1)); opacity: 0; }
   }
 
   /* ---------- layout ---------- */
   .wrap {
     position: relative; z-index: 1;
-    max-width: 680px; margin: 0 auto;
-    padding: clamp(24px, 6vw, 56px) 16px 96px;
+    max-width: 1060px; margin: 0 auto;
+    padding: clamp(24px, 4vw, 48px) 20px 96px;
   }
   header { margin-bottom: 28px; }
   .eyebrow {
@@ -85,6 +86,16 @@
   .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .span2 { grid-column: 1 / -1; }
   @media (max-width: 420px) { .bento { grid-template-columns: 1fr; } .span2 { grid-column: 1; } }
+  /* desktop: 4-track bento so the page fills the screen instead of a phone column */
+  @media (min-width: 880px) {
+    .bento { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .span2 { grid-column: span 2; }
+    #heroCard { grid-column: span 2; grid-row: span 2; display: flex; }
+    #heroCard .core { display: flex; flex-direction: column; justify-content: center; }
+    .hero-value { font-size: clamp(48px, 5.5vw, 72px); }
+    #tradesCard { grid-column: 1 / -1; }
+    header { text-align: center; }
+  }
 
   .label { font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
            color: rgba(255,255,255,.4); margin-bottom: 8px; }
@@ -161,7 +172,7 @@
   </header>
 
   <div class="bento">
-    <div class="shell span2 reveal">
+    <div class="shell span2 reveal" id="heroCard">
       <div class="core">
         <div class="label">Equity</div>
         <div class="hero-value num" id="equity">$0.00</div>
@@ -189,7 +200,7 @@
       </div>
     </div></div>
 
-    <div class="shell span2 reveal"><div class="core">
+    <div class="shell span2 reveal" id="tradesCard"><div class="core">
       <div class="label">Trades · tap a row for the bot's reasoning</div>
       <div id="trades"></div>
       <div class="hint" id="noTrades" style="display:none">No trades yet — the bot is watching.</div>
@@ -211,14 +222,16 @@ const usd = n => "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maxi
 /* drifting dollar signs */
 (() => {
   const bg = $("bg");
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 28; i++) {
     const d = document.createElement("span");
     d.className = "dollar"; d.textContent = "$";
-    d.style.left = (3 + Math.random() * 94) + "%";
-    d.style.fontSize = (14 + Math.random() * 34) + "px";
-    d.style.setProperty("--tilt", (Math.random() * 30 - 15) + "deg");
-    d.style.animationDuration = (16 + Math.random() * 22) + "s";
-    d.style.animationDelay = (-Math.random() * 30) + "s";
+    d.style.left = (2 + Math.random() * 96) + "%";
+    d.style.fontSize = (12 + Math.random() * 36) + "px";
+    // a few "lead" glyphs glow bright like Matrix rain heads, the rest trail dim
+    d.style.setProperty("--glow", Math.random() < 0.25 ? ".30" : (.06 + Math.random() * .08).toFixed(2));
+    d.style.setProperty("--tilt", (Math.random() * 16 - 8) + "deg");
+    d.style.animationDuration = (7 + Math.random() * 16) + "s";
+    d.style.animationDelay = (-Math.random() * 24) + "s";
     bg.appendChild(d);
   }
 })();
