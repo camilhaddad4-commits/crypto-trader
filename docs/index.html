@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crypto Trader</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --red: #f85149; --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 640px; margin: 0 auto; padding: 16px;
+  }
+  h1 { font-size: 1.15rem; margin-bottom: 2px; }
+  .sub { color: var(--muted); font-size: .8rem; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+  .card .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+  .card .value { font-size: 1.45rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card .hint { color: var(--muted); font-size: .75rem; }
+  .wide { grid-column: 1 / -1; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; font-variant-numeric: tabular-nums; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  td { padding: 7px 4px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .side-buy { color: var(--green); font-weight: 600; }
+  .side-sell { color: var(--red); font-weight: 600; }
+  .note { color: var(--muted); font-size: .72rem; }
+  #status { color: var(--muted); font-size: .78rem; margin-top: 14px; text-align: center; }
+  a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>🤖 Crypto Trader</h1>
+<div class="sub">Paper account · live Crypto.com prices · <a href="https://github.com/camilhaddad4-commits/crypto-trader/actions">bot activity</a></div>
+
+<div class="grid">
+  <div class="card wide">
+    <div class="label">Equity</div>
+    <div class="value" id="equity">—</div>
+    <div class="hint" id="pnl">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Cash</div>
+    <div class="value" id="cash">—</div>
+  </div>
+  <div class="card">
+    <div class="label">BTC price</div>
+    <div class="value" id="price">—</div>
+  </div>
+  <div class="card wide" id="posCard" style="display:none">
+    <div class="label">Open position</div>
+    <div class="value" id="posValue">—</div>
+    <div class="hint" id="posDetail">—</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="label" style="margin-bottom:6px">Trades</div>
+  <table id="trades"><thead><tr><th>Date</th><th>Side</th><th>USD</th><th>Price</th></tr></thead><tbody></tbody></table>
+  <div class="note" id="noTrades" style="display:none">No trades yet.</div>
+</div>
+
+<div id="status">loading…</div>
+
+<script>
+const REPO_RAW = "https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/portfolio.json";
+const STOP_LOSS_PCT = 0.03;
+const START_CASH = 100;
+
+const $ = id => document.getElementById(id);
+const usd = n => "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const signed = n => (n >= 0 ? "+" : "−") + usd(Math.abs(n)).slice(0);
+
+async function fetchPrice() {
+  // Kraken's public API sends CORS headers; Crypto.com's doesn't. Prices track within ~$1-2.
+  const r = await fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD");
+  const j = await r.json();
+  return parseFloat(Object.values(j.result)[0].b[0]);
+}
+
+async function load() {
+  try {
+    const [pf, price] = await Promise.all([
+      fetch(REPO_RAW + "?t=" + Date.now()).then(r => r.json()),
+      fetchPrice(),
+    ]);
+
+    $("price").textContent = usd(price);
+    $("cash").textContent = usd(pf.cash);
+
+    let posValue = 0;
+    const entries = Object.entries(pf.positions || {});
+    if (entries.length) {
+      const [sym, p] = entries[0];
+      posValue = p.qty * price;
+      const entry = p.cost / p.qty;
+      const upl = posValue - p.cost;
+      $("posCard").style.display = "";
+      $("posValue").innerHTML = `${sym} · ${usd(posValue)} <span class="${upl >= 0 ? "pos" : "neg"}">(${signed(upl)})</span>`;
+      $("posDetail").textContent =
+        `${p.qty.toFixed(6)} @ entry ${usd(entry)} · stop-loss ${usd(entry * (1 - STOP_LOSS_PCT))}`;
+    }
+
+    const equity = pf.cash + posValue;
+    const pnl = equity - START_CASH;
+    $("equity").textContent = usd(equity);
+    $("pnl").innerHTML = `<span class="${pnl >= 0 ? "pos" : "neg"}">${signed(pnl)} (${(pnl / START_CASH * 100).toFixed(2)}%) all-time</span>`;
+
+    const tbody = $("trades").querySelector("tbody");
+    tbody.innerHTML = "";
+    const trades = (pf.trades || []).slice().reverse();
+    if (!trades.length) $("noTrades").style.display = "";
+    for (const t of trades) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${t.time}</td>` +
+        `<td class="side-${t.side}">${t.side.toUpperCase()}</td>` +
+        `<td>${usd(t.usd)}</td><td>${usd(t.price)}</td>`;
+      if (t.note) tr.title = t.note;
+      tbody.appendChild(tr);
+    }
+
+    $("status").textContent = "updated " + new Date().toLocaleTimeString() +
+      " · portfolio state may lag a few minutes behind the latest bot commit";
+  } catch (e) {
+    $("status").textContent = "failed to load: " + e.message;
+  }
+}
+
+load();
+setInterval(load, 60_000);
+</script>
+</body>
+</html>
