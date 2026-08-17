@@ -2,140 +2,303 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crypto Trader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0d1117; --card: #161b22; --border: #30363d;
-    --text: #e6edf3; --muted: #8b949e;
-    --green: #3fb950; --red: #f85149; --accent: #58a6ff;
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --green: #34d399; --red: #fb7185; --accent: #a78bfa;
   }
-  * { box-sizing: border-box; margin: 0; }
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  html { color-scheme: dark; }
   body {
-    background: var(--bg); color: var(--text);
-    font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 640px; margin: 0 auto; padding: 16px;
+    background: #050505; color: #f4f4f5;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.5;
+    min-height: 100dvh; overflow-x: hidden;
   }
-  h1 { font-size: 1.15rem; margin-bottom: 2px; }
-  .sub { color: var(--muted); font-size: .8rem; margin-bottom: 16px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-  .card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px;
+  .num { font-family: "Space Grotesk", monospace; font-variant-numeric: tabular-nums; }
+
+  /* ---------- ambient background: mesh orbs + drifting dollars ---------- */
+  .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .5; }
+  .orb1 { width: 55vmax; height: 55vmax; top: -25vmax; left: -15vmax;
+          background: radial-gradient(circle, rgba(124,58,237,.5), transparent 65%); }
+  .orb2 { width: 45vmax; height: 45vmax; bottom: -20vmax; right: -12vmax;
+          background: radial-gradient(circle, rgba(16,185,129,.4), transparent 65%); }
+  .orb3 { width: 30vmax; height: 30vmax; top: 40%; left: 60%;
+          background: radial-gradient(circle, rgba(56,189,248,.25), transparent 65%); }
+  .dollar {
+    position: absolute; bottom: -12vh;
+    font-family: "Space Grotesk", monospace; font-weight: 700;
+    color: rgba(255,255,255,.05);
+    animation: rise linear infinite;
+    will-change: transform;
+    user-select: none;
   }
-  .card .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
-  .card .value { font-size: 1.45rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .card .hint { color: var(--muted); font-size: .75rem; }
-  .wide { grid-column: 1 / -1; }
-  .pos { color: var(--green); } .neg { color: var(--red); }
-  table { width: 100%; border-collapse: collapse; font-size: .82rem; font-variant-numeric: tabular-nums; }
-  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 4px; border-bottom: 1px solid var(--border); }
-  td { padding: 7px 4px; border-bottom: 1px solid var(--border); }
-  tr:last-child td { border-bottom: none; }
-  .side-buy { color: var(--green); font-weight: 600; }
-  .side-sell { color: var(--red); font-weight: 600; }
-  .note { color: var(--muted); font-size: .72rem; }
-  #status { color: var(--muted); font-size: .78rem; margin-top: 14px; text-align: center; }
-  a { color: var(--accent); text-decoration: none; }
+  @keyframes rise {
+    from { transform: translateY(0) rotate(var(--tilt)) scale(1); opacity: 0; }
+    8%   { opacity: 1; }
+    85%  { opacity: 1; }
+    to   { transform: translateY(-118vh) rotate(calc(var(--tilt) * -1)) scale(1.15); opacity: 0; }
+  }
+
+  /* ---------- layout ---------- */
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 680px; margin: 0 auto;
+    padding: clamp(24px, 6vw, 56px) 16px 96px;
+  }
+  header { margin-bottom: 28px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 999px;
+    padding: 5px 12px; font-size: 10px; font-weight: 600;
+    letter-spacing: .22em; text-transform: uppercase; color: rgba(255,255,255,.55);
+    backdrop-filter: blur(8px);
+  }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+           box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 2.4s var(--ease) infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 8px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+  h1 { font-family: "Space Grotesk"; font-weight: 700; font-size: clamp(26px, 6vw, 34px);
+       letter-spacing: -.02em; margin-top: 14px; }
+  .subtitle { color: rgba(255,255,255,.4); font-size: 13px; margin-top: 4px; }
+  .subtitle a { color: rgba(255,255,255,.6); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.2); }
+
+  /* ---------- double-bezel glass cards ---------- */
+  .shell {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 28px; padding: 7px;
+    transition: transform .7s var(--ease), border-color .7s var(--ease);
+  }
+  .shell:active { transform: scale(.985); }
+  .core {
+    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.10);
+    border-radius: 21px; padding: 20px;
+    height: 100%;
+  }
+  .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .span2 { grid-column: 1 / -1; }
+  @media (max-width: 420px) { .bento { grid-template-columns: 1fr; } .span2 { grid-column: 1; } }
+
+  .label { font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
+           color: rgba(255,255,255,.4); margin-bottom: 8px; }
+  .hero-value { font-family: "Space Grotesk"; font-weight: 700;
+                font-size: clamp(44px, 11vw, 64px); letter-spacing: -.03em; line-height: 1.05; }
+  .stat-value { font-family: "Space Grotesk"; font-weight: 600; font-size: 24px; letter-spacing: -.01em; }
+  .delta { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+           border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+  .delta.up   { background: rgba(52,211,153,.12); color: var(--green); }
+  .delta.down { background: rgba(251,113,133,.12); color: var(--red); }
+  .hint { color: rgba(255,255,255,.38); font-size: 12px; margin-top: 8px; }
+
+  /* stop-loss meter */
+  .meter { margin-top: 14px; }
+  .meter-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .meter-fill { height: 100%; border-radius: 999px;
+                background: linear-gradient(90deg, var(--red), #fbbf24, var(--green));
+                transform-origin: left; transform: scaleX(0);
+                transition: transform 1.4s var(--ease); }
+  .meter-labels { display: flex; justify-content: space-between;
+                  font-size: 10px; color: rgba(255,255,255,.35); margin-top: 6px; }
+
+  /* trades */
+  .trade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+           padding: 13px 4px; border-bottom: 1px solid rgba(255,255,255,.06);
+           cursor: pointer; transition: background .5s var(--ease); border-radius: 10px; }
+  .trade:last-of-type { border-bottom: none; }
+  .trade:active { background: rgba(255,255,255,.04); }
+  .badge { font-size: 10px; font-weight: 700; letter-spacing: .12em;
+           border-radius: 999px; padding: 5px 11px; }
+  .badge.buy  { background: rgba(52,211,153,.14); color: var(--green); }
+  .badge.sell { background: rgba(251,113,133,.14); color: var(--red); }
+  .trade-note { grid-column: 1 / -1; font-size: 12px; color: rgba(255,255,255,.45);
+                overflow: hidden; max-height: 0; opacity: 0;
+                transition: max-height .6s var(--ease), opacity .6s var(--ease), padding .6s var(--ease); }
+  .trade.open .trade-note { max-height: 60px; opacity: 1; padding: 2px 4px 6px; }
+
+  /* refresh pill — button-in-button */
+  .refresh {
+    display: inline-flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px; padding: 10px 10px 10px 22px;
+    color: #f4f4f5; font: 600 14px "Plus Jakarta Sans"; cursor: pointer;
+    backdrop-filter: blur(12px);
+    transition: transform .5s var(--ease), border-color .5s var(--ease);
+  }
+  .refresh:hover { border-color: rgba(255,255,255,.3); }
+  .refresh:active { transform: scale(.96); }
+  .refresh .icon { width: 34px; height: 34px; border-radius: 50%;
+                   background: rgba(255,255,255,.1); display: grid; place-items: center;
+                   font-size: 15px; transition: transform .6s var(--ease); }
+  .refresh:hover .icon { transform: rotate(120deg); }
+  .refresh.busy .icon { animation: spin 1s var(--ease) infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .footer { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 30px; }
+  #status { color: rgba(255,255,255,.3); font-size: 12px; text-align: center; }
+
+  /* entry choreography */
+  .reveal { opacity: 0; transform: translateY(28px); filter: blur(6px);
+            transition: opacity .9s var(--ease), transform .9s var(--ease), filter .9s var(--ease); }
+  .reveal.in { opacity: 1; transform: none; filter: none; }
 </style>
 </head>
 <body>
-<h1>🤖 Crypto Trader</h1>
-<div class="sub">Paper account · live Crypto.com prices · <a href="https://github.com/camilhaddad4-commits/crypto-trader/actions">bot activity</a></div>
-
-<div class="grid">
-  <div class="card wide">
-    <div class="label">Equity</div>
-    <div class="value" id="equity">—</div>
-    <div class="hint" id="pnl">—</div>
-  </div>
-  <div class="card">
-    <div class="label">Cash</div>
-    <div class="value" id="cash">—</div>
-  </div>
-  <div class="card">
-    <div class="label">BTC price</div>
-    <div class="value" id="price">—</div>
-  </div>
-  <div class="card wide" id="posCard" style="display:none">
-    <div class="label">Open position</div>
-    <div class="value" id="posValue">—</div>
-    <div class="hint" id="posDetail">—</div>
-  </div>
+<div class="bg" id="bg">
+  <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
 </div>
 
-<div class="card">
-  <div class="label" style="margin-bottom:6px">Trades</div>
-  <table id="trades"><thead><tr><th>Date</th><th>Side</th><th>USD</th><th>Price</th></tr></thead><tbody></tbody></table>
-  <div class="note" id="noTrades" style="display:none">No trades yet.</div>
-</div>
+<div class="wrap">
+  <header class="reveal">
+    <span class="eyebrow"><span class="pulse"></span> Paper account · autonomous</span>
+    <h1>Crypto Trader</h1>
+    <div class="subtitle">BTC/USD · SMA 20/50 · <a href="https://github.com/camilhaddad4-commits/crypto-trader/actions">bot activity ↗</a></div>
+  </header>
 
-<div id="status">loading…</div>
+  <div class="bento">
+    <div class="shell span2 reveal">
+      <div class="core">
+        <div class="label">Equity</div>
+        <div class="hero-value num" id="equity">$0.00</div>
+        <span class="delta up" id="pnl">—</span>
+      </div>
+    </div>
+
+    <div class="shell reveal"><div class="core">
+      <div class="label">Cash</div>
+      <div class="stat-value num" id="cash">—</div>
+    </div></div>
+
+    <div class="shell reveal"><div class="core">
+      <div class="label">BTC price</div>
+      <div class="stat-value num" id="price">—</div>
+    </div></div>
+
+    <div class="shell span2 reveal" id="posCard" style="display:none"><div class="core">
+      <div class="label">Open position</div>
+      <div class="stat-value num" id="posValue">—</div>
+      <div class="hint" id="posDetail">—</div>
+      <div class="meter">
+        <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+        <div class="meter-labels"><span id="stopLbl">stop</span><span id="entryLbl">entry</span></div>
+      </div>
+    </div></div>
+
+    <div class="shell span2 reveal"><div class="core">
+      <div class="label">Trades · tap a row for the bot's reasoning</div>
+      <div id="trades"></div>
+      <div class="hint" id="noTrades" style="display:none">No trades yet — the bot is watching.</div>
+    </div></div>
+  </div>
+
+  <div class="footer reveal">
+    <button class="refresh" id="refreshBtn">Refresh <span class="icon">⟳</span></button>
+    <div id="status">loading…</div>
+  </div>
+</div>
 
 <script>
-const REPO_RAW = "https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/portfolio.json";
-const STOP_LOSS_PCT = 0.03;
-const START_CASH = 100;
-
+const RAW = "https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/portfolio.json";
+const STOP = 0.03, START = 100;
 const $ = id => document.getElementById(id);
 const usd = n => "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
-const signed = n => (n >= 0 ? "+" : "−") + usd(Math.abs(n)).slice(0);
+
+/* drifting dollar signs */
+(() => {
+  const bg = $("bg");
+  for (let i = 0; i < 16; i++) {
+    const d = document.createElement("span");
+    d.className = "dollar"; d.textContent = "$";
+    d.style.left = (3 + Math.random() * 94) + "%";
+    d.style.fontSize = (14 + Math.random() * 34) + "px";
+    d.style.setProperty("--tilt", (Math.random() * 30 - 15) + "deg");
+    d.style.animationDuration = (16 + Math.random() * 22) + "s";
+    d.style.animationDelay = (-Math.random() * 30) + "s";
+    bg.appendChild(d);
+  }
+})();
+
+/* staggered entry reveal */
+document.querySelectorAll(".reveal").forEach((el, i) =>
+  setTimeout(() => el.classList.add("in"), 90 + i * 110));
+
+/* animated count-up */
+function countUp(el, target) {
+  const from = parseFloat(el.dataset.v || 0), t0 = performance.now();
+  el.dataset.v = target;
+  (function tick(t) {
+    const p = Math.min((t - t0) / 900, 1), e = 1 - Math.pow(1 - p, 4);
+    el.textContent = usd(from + (target - from) * e);
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
 
 async function fetchPrice() {
-  // Kraken's public API sends CORS headers; Crypto.com's doesn't. Prices track within ~$1-2.
-  const r = await fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD");
-  const j = await r.json();
+  // Kraken's public API allows browser CORS; Crypto.com's doesn't. They track within ~$1-2.
+  const j = await (await fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD")).json();
   return parseFloat(Object.values(j.result)[0].b[0]);
 }
 
 async function load() {
+  const btn = $("refreshBtn"); btn.classList.add("busy");
   try {
     const [pf, price] = await Promise.all([
-      fetch(REPO_RAW + "?t=" + Date.now()).then(r => r.json()),
+      fetch(RAW + "?t=" + Date.now()).then(r => r.json()),
       fetchPrice(),
     ]);
-
-    $("price").textContent = usd(price);
-    $("cash").textContent = usd(pf.cash);
+    countUp($("price"), price);
+    countUp($("cash"), pf.cash);
 
     let posValue = 0;
     const entries = Object.entries(pf.positions || {});
     if (entries.length) {
       const [sym, p] = entries[0];
       posValue = p.qty * price;
-      const entry = p.cost / p.qty;
-      const upl = posValue - p.cost;
+      const entry = p.cost / p.qty, stop = entry * (1 - STOP), upl = posValue - p.cost;
       $("posCard").style.display = "";
-      $("posValue").innerHTML = `${sym} · ${usd(posValue)} <span class="${upl >= 0 ? "pos" : "neg"}">(${signed(upl)})</span>`;
-      $("posDetail").textContent =
-        `${p.qty.toFixed(6)} @ entry ${usd(entry)} · stop-loss ${usd(entry * (1 - STOP_LOSS_PCT))}`;
+      $("posValue").innerHTML = `${sym.replace("_", "/")} · ${usd(posValue)} <span style="color:${upl >= 0 ? "var(--green)" : "var(--red)"};font-size:15px">${upl >= 0 ? "+" : "−"}${usd(Math.abs(upl)).slice(1)}</span>`;
+      $("posDetail").textContent = `${p.qty.toFixed(6)} BTC @ entry ${usd(entry)}`;
+      $("stopLbl").textContent = "stop " + usd(stop);
+      $("entryLbl").textContent = "entry " + usd(entry);
+      const range = Math.max(entry * 1.03 - stop, 1e-9);
+      $("meterFill").style.transform = `scaleX(${Math.min(Math.max((price - stop) / range, 0.02), 1)})`;
+    } else {
+      $("posCard").style.display = "none";
     }
 
-    const equity = pf.cash + posValue;
-    const pnl = equity - START_CASH;
-    $("equity").textContent = usd(equity);
-    $("pnl").innerHTML = `<span class="${pnl >= 0 ? "pos" : "neg"}">${signed(pnl)} (${(pnl / START_CASH * 100).toFixed(2)}%) all-time</span>`;
+    const equity = pf.cash + posValue, pnl = equity - START;
+    countUp($("equity"), equity);
+    const pd = $("pnl");
+    pd.className = "delta " + (pnl >= 0 ? "up" : "down");
+    pd.textContent = `${pnl >= 0 ? "▲" : "▼"} ${usd(Math.abs(pnl))} · ${(pnl / START * 100).toFixed(2)}% all-time`;
 
-    const tbody = $("trades").querySelector("tbody");
-    tbody.innerHTML = "";
+    const box = $("trades"); box.innerHTML = "";
     const trades = (pf.trades || []).slice().reverse();
-    if (!trades.length) $("noTrades").style.display = "";
+    $("noTrades").style.display = trades.length ? "none" : "";
     for (const t of trades) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${t.time}</td>` +
-        `<td class="side-${t.side}">${t.side.toUpperCase()}</td>` +
-        `<td>${usd(t.usd)}</td><td>${usd(t.price)}</td>`;
-      if (t.note) tr.title = t.note;
-      tbody.appendChild(tr);
+      const row = document.createElement("div");
+      row.className = "trade";
+      row.innerHTML =
+        `<span class="badge ${t.side}">${t.side.toUpperCase()}</span>` +
+        `<span class="num" style="font-size:14px">${usd(t.usd)} <span style="color:rgba(255,255,255,.35)">@ ${usd(t.price)}</span></span>` +
+        `<span style="color:rgba(255,255,255,.35);font-size:12px">${t.time}</span>` +
+        `<span class="trade-note">${t.note || "manual trade"}</span>`;
+      row.addEventListener("click", () => row.classList.toggle("open"));
+      box.appendChild(row);
     }
-
-    $("status").textContent = "updated " + new Date().toLocaleTimeString() +
-      " · portfolio state may lag a few minutes behind the latest bot commit";
+    $("status").textContent = "updated " + new Date().toLocaleTimeString() + " · state can lag the newest commit by a few minutes";
   } catch (e) {
     $("status").textContent = "failed to load: " + e.message;
   }
+  btn.classList.remove("busy");
 }
 
+$("refreshBtn").addEventListener("click", load);
 load();
 setInterval(load, 60_000);
 </script>

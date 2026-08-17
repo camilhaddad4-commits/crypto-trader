@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime
 
-from bot import cryptocom, paper, strategy
+from bot import cryptocom, notify, paper, strategy
 
 TRADE_SIZE_USD = 25  # what `auto` puts on each buy signal (25% of the $100 account)
 
@@ -34,14 +34,17 @@ def run_cycle(symbol: str) -> None:
         if bid <= entry * (1 - strategy.STOP_LOSS_PCT):
             t = paper.sell(symbol, note=f"auto:stop-loss entry={entry:,.2f}")
             print(f"[{now}] STOP-LOSS sold {t['qty']:.6f} @ {t['price']:,.2f}")
+            notify.trade_alert(t, paper.equity())
             pos = None
 
     if sig == "buy" and not pos:
         t = paper.buy(symbol, TRADE_SIZE_USD, note="auto:sma-cross-up")
         print(f"[{now}] BUY  {t['qty']:.6f} @ {t['price']:,.2f}")
+        notify.trade_alert(t, paper.equity())
     elif sig == "sell" and pos:
         t = paper.sell(symbol, note="auto:sma-cross-down")
         print(f"[{now}] SELL {t['qty']:.6f} @ {t['price']:,.2f}")
+        notify.trade_alert(t, paper.equity())
     else:
         print(f"[{now}] hold (signal={sig}, position={bool(pos)}, last closed={closes[-1]:,.2f})")
 
@@ -120,6 +123,7 @@ def main() -> None:
             run_cycle(symbol)
         except SystemExit as e:
             print(f"HALTED: {e}")  # exit 0: a safety-rail refusal is a valid outcome, not a CI failure
+            notify.send(f"🛑 <b>Bot halted this cycle</b>\n{e}")
 
     elif cmd == "reset":
         paper.reset()
