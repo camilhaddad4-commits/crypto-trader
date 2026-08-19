@@ -264,7 +264,7 @@
     </div></div>
 
     <div class="shell span2 reveal" id="tradesCard"><div class="core">
-      <div class="label">Trades · tap a row for the bot's reasoning</div>
+      <div class="label">Trades · tap a row for details</div>
       <div id="trades"></div>
       <div class="hint" id="noTrades" style="display:none">No trades yet — the bot is watching.</div>
     </div></div>
@@ -421,17 +421,44 @@ async function load() {
     $("statRealized").innerHTML = `<span style="color:${realized >= 0 ? "var(--green)" : "var(--red)"}">${realized >= 0 ? "+" : "−"}${usd(Math.abs(realized)).slice(1)}</span>`;
     $("statFees").textContent = usd(fees);
 
+    // group raw fills into round trips: each buy pairs with the sell that closes it
+    const trips = [];
+    let openTrip = null;
+    for (const t of pf.trades || []) {
+      if (t.side === "buy") {
+        openTrip = { symbol: t.symbol, buyUsd: t.usd, buyPrice: t.price,
+                     buyNote: t.note, opened: t.time, closed: null };
+        trips.push(openTrip);
+      } else if (openTrip) {
+        openTrip.sellUsd = t.usd; openTrip.sellPrice = t.price;
+        openTrip.sellNote = t.note; openTrip.closed = t.time;
+        openTrip.pl = t.usd - openTrip.buyUsd;
+        openTrip = null;
+      }
+    }
     const box = $("trades"); box.innerHTML = "";
-    const trades = (pf.trades || []).slice().reverse();
-    $("noTrades").style.display = trades.length ? "none" : "";
-    for (const t of trades) {
+    $("noTrades").style.display = trips.length ? "none" : "";
+    for (const tr of trips.slice().reverse()) {
       const row = document.createElement("div");
       row.className = "trade";
+      const isOpen = tr.closed === null;
+      const verdict = isOpen
+        ? `<span class="badge buy">OPEN</span>`
+        : tr.pl >= 0
+          ? `<span class="badge buy">WIN</span>`
+          : `<span class="badge sell">LOSS</span>`;
+      const plText = isOpen
+        ? `<span style="color:rgba(255,255,255,.35)">riding…</span>`
+        : `<span style="color:${tr.pl >= 0 ? "var(--green)" : "var(--red)"};font-weight:600">${tr.pl >= 0 ? "+" : "−"}${usd(Math.abs(tr.pl)).slice(1)} · ${(tr.pl / tr.buyUsd * 100).toFixed(1)}%</span>`;
       row.innerHTML =
-        `<span class="badge ${t.side}">${t.side.toUpperCase()}</span>` +
-        `<span class="num" style="font-size:14px">${usd(t.usd)} <span style="color:rgba(255,255,255,.35)">@ ${usd(t.price)}</span></span>` +
-        `<span style="color:rgba(255,255,255,.35);font-size:12px">${t.time}</span>` +
-        `<span class="trade-note">${t.note || "manual trade"}</span>`;
+        verdict +
+        `<span class="num" style="font-size:14px">${usd(tr.buyUsd)} @ ${usd(tr.buyPrice)}` +
+        (isOpen ? "" : ` <span style="color:rgba(255,255,255,.35)">→</span> ${usd(tr.sellPrice)}`) +
+        ` &nbsp;${plText}</span>` +
+        `<span style="color:rgba(255,255,255,.35);font-size:12px">${tr.closed || tr.opened}</span>` +
+        `<span class="trade-note">in: ${tr.buyNote || "manual"} (${tr.opened})` +
+        (isOpen ? "" : ` · out: ${tr.sellNote || "manual"} (${tr.closed}) · sold for ${usd(tr.sellUsd)}`) +
+        `</span>`;
       row.addEventListener("click", () => row.classList.toggle("open"));
       box.appendChild(row);
     }

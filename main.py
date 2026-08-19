@@ -26,7 +26,7 @@ if os.environ.get("LIVE") == "1":
 else:
     from bot import paper as engine
 
-TRADE_SIZE_USD = 25  # what `auto` puts on each buy signal (25% of the $100 account)
+TRADE_SIZE_USD = 100  # what `auto` puts on each buy signal, capped at available cash
 
 
 def run_cycle(symbol: str) -> None:
@@ -52,7 +52,9 @@ def run_cycle(symbol: str) -> None:
             pos = None
 
     if sig == "buy" and not pos:
-        t = engine.buy(symbol, TRADE_SIZE_USD, note="auto:sma-cross-up")
+        # bet the full size, capped at whatever cash is actually available
+        size = round(min(TRADE_SIZE_USD, engine.summary()["cash"]), 2)
+        t = engine.buy(symbol, size, note="auto:sma-cross-up")
         print(f"[{now}] BUY  {t['qty']:.6f} @ {t['price']:,.2f}")
         notify.trade_alert(t, engine.equity())
     elif sig == "sell" and pos:
