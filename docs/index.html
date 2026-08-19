@@ -185,6 +185,27 @@
   .footer { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 30px; }
   #status { color: rgba(255,255,255,.3); font-size: 12px; text-align: center; }
 
+  /* news rail: normal card in flow; docks to the empty left gutter on wide screens */
+  .news-rail { margin-top: 14px; }
+  #newsList { max-height: 420px; overflow-y: auto; overscroll-behavior: contain;
+              scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+  @media (min-width: 1560px) {
+    .news-rail { position: fixed; left: 22px; top: 96px; width: 340px; margin: 0; z-index: 2; }
+    #newsList { max-height: calc(100vh - 260px); }
+  }
+  .news-item { display: flex; gap: 10px; padding: 10px 6px; text-decoration: none; color: inherit;
+               border-bottom: 1px solid rgba(255,255,255,.06); border-radius: 10px;
+               transition: background .5s var(--ease); }
+  .news-item:last-child { border-bottom: none; }
+  .news-item:hover { background: rgba(255,255,255,.05); }
+  .news-thumb { width: 68px; height: 50px; object-fit: cover; border-radius: 8px; flex: none;
+                background: rgba(255,255,255,.06); }
+  .news-title { font-size: 12.5px; line-height: 1.35; display: -webkit-box;
+                -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .news-meta { display: block; font-size: 10px; color: rgba(255,255,255,.35); margin-top: 4px; }
+  .news-item.fresh { animation: freshGlow 4s var(--ease); }
+  @keyframes freshGlow { from { background: rgba(52,211,153,.18); } to { background: transparent; } }
+
   /* entry choreography */
   .reveal { opacity: 0; transform: translateY(28px); filter: blur(6px);
             transition: opacity .9s var(--ease), transform .9s var(--ease), filter .9s var(--ease); }
@@ -269,6 +290,14 @@
       <div class="hint" id="noTrades" style="display:none">No trades yet — the bot is watching.</div>
     </div></div>
   </div>
+
+  <aside class="shell news-rail reveal">
+    <div class="core">
+      <div class="label">📰 Crypto news · live</div>
+      <div id="newsList"></div>
+      <div class="hint" id="newsStamp" style="margin-top:8px">loading news…</div>
+    </div>
+  </aside>
 
   <div class="footer reveal">
     <button class="refresh" id="refreshBtn">Refresh <span class="icon">⟳</span></button>
@@ -469,10 +498,76 @@ async function load() {
   btn.classList.remove("busy");
 }
 
+/* ---- live news rail: two RSS feeds via rss2json, auto-scrolls to fresh items ---- */
+const FEEDS = ["https://cointelegraph.com/rss", "https://www.coindesk.com/arc/outboundfeeds/rss/"];
+const seenLinks = new Set();
+let lastNewsTouch = 0;
+$("newsList").addEventListener("scroll", () => lastNewsTouch = Date.now());
+
+function timeAgo(d) {
+  const m = Math.max(Math.round((Date.now() - d) / 60000), 0);
+  if (m < 60) return m + "m ago";
+  if (m < 1440) return Math.round(m / 60) + "h ago";
+  return Math.round(m / 1440) + "d ago";
+}
+
+async function loadNews() {
+  try {
+    const results = await Promise.allSettled(FEEDS.map(u =>
+      fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(u)).then(r => r.json())));
+    const items = [];
+    for (const r of results) {
+      if (r.status !== "fulfilled" || r.value.status !== "ok") continue;
+      const source = (r.value.feed?.title || "news").split(" ")[0].replace(".com", "");
+      for (const it of r.value.items || []) items.push({
+        title: it.title, link: it.link,
+        thumb: it.thumbnail || it.enclosure?.link || "",
+        source, date: new Date((it.pubDate || "").replace(" ", "T") + "Z"),
+      });
+    }
+    items.sort((a, b) => b.date - a.date);
+    const top = items.slice(0, 25);
+    if (!top.length) throw new Error("no items");
+    const list = $("newsList");
+    const firstLoad = seenLinks.size === 0;
+    let hasNew = false;
+    list.innerHTML = "";
+    for (const n of top) {
+      const isNew = !seenLinks.has(n.link);
+      if (isNew) { seenLinks.add(n.link); if (!firstLoad) hasNew = true; }
+      const a = document.createElement("a");
+      a.className = "news-item" + (isNew && !firstLoad ? " fresh" : "");
+      a.href = n.link; a.target = "_blank"; a.rel = "noopener";
+      if (n.thumb) {
+        const img = document.createElement("img");
+        img.className = "news-thumb"; img.src = n.thumb; img.loading = "lazy";
+        img.onerror = () => img.remove();
+        a.appendChild(img);
+      }
+      const body = document.createElement("span");
+      const title = document.createElement("span");
+      title.className = "news-title"; title.textContent = n.title;
+      const meta = document.createElement("span");
+      meta.className = "news-meta"; meta.textContent = `${n.source} · ${timeAgo(n.date)}`;
+      body.append(title, meta);
+      a.appendChild(body);
+      list.appendChild(a);
+    }
+    // auto-scroll to the newest drop, but never yank the list while you're reading it
+    if (hasNew && Date.now() - lastNewsTouch > 30_000)
+      list.scrollTo({ top: 0, behavior: "smooth" });
+    $("newsStamp").textContent = "updated " + new Date().toLocaleTimeString() + " · refreshes every 3 min";
+  } catch (e) {
+    $("newsStamp").textContent = "news feed unavailable right now — retrying";
+  }
+}
+
 $("refreshBtn").addEventListener("click", load);
 load();
 startStream();
+loadNews();
 setInterval(load, 60_000);
+setInterval(loadNews, 180_000);
 </script>
 </body>
 </html>
