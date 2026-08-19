@@ -189,14 +189,14 @@
   .news-rail { margin-top: 14px; }
   #newsList { max-height: 420px; overflow-y: auto; overscroll-behavior: contain;
               scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
-  /* dock only when the gutter is truly wide enough to clear the equity card,
-     size the rail to the gutter, and stretch it the full height of the screen */
-  @media (min-width: 1760px) {
-    .news-rail { position: fixed; left: 22px; top: 16px; bottom: 16px; margin: 0; z-index: 2;
-                 width: min(380px, calc((100vw - 1100px) / 2 - 40px));
-                 display: flex; }
-    .news-rail .core { display: flex; flex-direction: column; width: 100%; }
+  /* desktop: true left sidebar, full screen height; the page shifts right to make room,
+     so overlap with the content is impossible at any window width */
+  @media (min-width: 1100px) {
+    .news-rail { position: fixed; left: 0; top: 0; bottom: 0; width: 330px; margin: 0; z-index: 2;
+                 display: flex; border-radius: 0; border-top: none; border-bottom: none; border-left: none; }
+    .news-rail .core { display: flex; flex-direction: column; width: 100%; border-radius: 0; }
     #newsList { flex: 1; max-height: none; }
+    body { padding-left: 330px; }
   }
   .news-item { display: flex; gap: 10px; padding: 10px 6px; text-decoration: none; color: inherit;
                border-bottom: 1px solid rgba(255,255,255,.06); border-radius: 10px;
