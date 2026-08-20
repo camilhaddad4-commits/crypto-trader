@@ -114,14 +114,31 @@
   .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .span2 { grid-column: 1 / -1; }
   @media (max-width: 420px) { .bento { grid-template-columns: 1fr; } .span2 { grid-column: 1; } }
-  /* desktop: 4-track bento so the page fills the screen instead of a phone column */
+  /* desktop: named grid zones — everything has a fixed, balanced home */
   @media (min-width: 880px) {
-    .bento { grid-template-columns: repeat(4, 1fr); gap: 14px; }
-    .span2 { grid-column: span 2; }
-    #heroCard { grid-column: span 2; grid-row: span 2; display: flex; }
+    .bento {
+      grid-template-columns: repeat(4, 1fr); gap: 14px;
+      grid-template-areas:
+        "hero hero cash btc"
+        "hero hero pos  pos"
+        "lev  lev  pos  pos"
+        "trades trades trades trades";
+    }
+    .bento.noPos {
+      grid-template-areas:
+        "hero hero cash btc"
+        "hero hero lev  lev"
+        "trades trades trades trades";
+    }
+    #heroCard { grid-area: hero; display: flex; }
     #heroCard .core { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .hero-value { font-size: clamp(48px, 5.5vw, 72px); }
-    #tradesCard { grid-column: 1 / -1; }
+    #cashCard { grid-area: cash; }
+    #btcCard { grid-area: btc; }
+    #posCard { grid-area: pos; }
+    #levCard { grid-area: lev; display: flex; }
+    #levCard .core { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    #tradesCard { grid-area: trades; }
+    .hero-value { font-size: clamp(48px, 5vw, 68px); }
     header { text-align: center; }
   }
 
@@ -255,12 +272,12 @@
       </div>
     </div>
 
-    <div class="shell reveal"><div class="core">
+    <div class="shell reveal" id="cashCard"><div class="core">
       <div class="label">Cash</div>
       <div class="stat-value num" id="cash">—</div>
     </div></div>
 
-    <div class="shell reveal"><div class="core">
+    <div class="shell reveal" id="btcCard"><div class="core">
       <div class="label">BTC price</div>
       <div class="stat-value num" id="price">—</div>
     </div></div>
@@ -399,6 +416,7 @@ function renderPrices(price) {
 
   let posValue = 0;
   const entries = Object.entries(pf.positions || {});
+  document.querySelector(".bento").classList.toggle("noPos", !entries.length);
   if (entries.length) {
     const [sym, p] = entries[0];
     posValue = p.qty * price;
@@ -517,7 +535,7 @@ async function load() {
       } else {
         $("levValue").textContent = usd(levEq);
         const closed = (lev.trades || []).filter(t => t.side === "sell").length;
-        $("levDetail").textContent = `flat · started $30 · ${closed} closed trades · halts below $10, no refills`;
+        $("levDetail").textContent = `flat · started $100 · ${closed} closed trades · halts below $33, no refills`;
       }
     } catch (e) { /* sleeve file not there yet */ }
 

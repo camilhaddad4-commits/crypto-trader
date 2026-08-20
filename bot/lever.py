@@ -4,7 +4,7 @@ Separate $30 sleeve, separate state file. Models the costs spot doesn't have:
   - taker fee on NOTIONAL (margin x leverage), Crypto.com derivatives Lv1: 0.04%
   - funding payments (~0.01% per 8h on notional, the long-side norm)
   - liquidation: at 3x a ~-32% price move wipes the margin. Checked every cycle.
-Hard rule: sleeve below $10 halts. No refills — the sleeve must earn its way back.
+Hard rule: sleeve below $33 halts. No refills — the sleeve must earn its way back.
 """
 import json
 import time
@@ -16,11 +16,11 @@ from bot import cryptocom
 STATE_FILE = Path(__file__).resolve().parent.parent / "lever_portfolio.json"
 
 LEVERAGE = 3
-STARTING_CASH = 30.0
+STARTING_CASH = 100.0
 FEE_RATE = 0.0004        # taker, charged on notional per side
 FUNDING_8H = 0.0001      # 0.01% per 8h on notional while position open
 MMR = 0.01               # maintenance margin rate (approximation)
-HALT_FLOOR = 10.0        # sleeve equity below this: no new positions, ever
+HALT_FLOOR = 33.0        # sleeve equity below this: no new positions, ever
 STOP_LOSS_PCT = 0.03     # same price levels as spot: -3% price = -9% margin
 TAKE_PROFIT_PCT = 0.06   # +6% price = +18% margin
 
