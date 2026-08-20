@@ -2,7 +2,7 @@ name: paper-trade
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # every 15 min (GitHub may drift a few minutes — fine for 1h candles)
+    - cron: "*/5 * * * *"    # every 5 min — GitHub's minimum; treated as best-effort so expect some drift
   workflow_dispatch: {}       # manual "Run workflow" button
 
 permissions:
