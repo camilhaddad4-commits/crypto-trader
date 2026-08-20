@@ -1,7 +1,25 @@
 {
-  "cash": 100.0,
-  "position": null,
-  "trades": [],
+  "cash": 0.0,
+  "position": {
+    "symbol": "BTC_USD",
+    "margin": 99.88,
+    "qty": 0.004147424345795652,
+    "entry": 72334.05,
+    "notional_entry": 300.0,
+    "liq": 48946.04050000001,
+    "opened_ts": 1787252536.6647785
+  },
+  "trades": [
+    {
+      "time": "2026-08-20",
+      "side": "buy",
+      "symbol": "BTC_USD",
+      "usd": 100.0,
+      "price": 72334.05,
+      "qty": 0.004147424345795652,
+      "note": "auto:sma-cross-up 3x liq=48,946"
+    }
+  ],
   "day": "2026-08-20",
   "day_start_equity": 100.0
 }
