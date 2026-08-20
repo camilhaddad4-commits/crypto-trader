@@ -289,6 +289,12 @@
       </div>
     </div></div>
 
+    <div class="shell span2 reveal" id="levCard" style="display:none"><div class="core">
+      <div class="label">⚡ 3x leverage sleeve · paper</div>
+      <div class="stat-value num" id="levValue">—</div>
+      <div class="hint" id="levDetail">—</div>
+    </div></div>
+
     <div class="shell span2 reveal" id="tradesCard"><div class="core">
       <div class="label">Trades · tap a row for details</div>
       <div id="trades"></div>
@@ -496,6 +502,25 @@ async function load() {
       row.addEventListener("click", () => row.classList.toggle("open"));
       box.appendChild(row);
     }
+    // 3x sleeve card
+    try {
+      const lev = await fetch("https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/lever_portfolio.json?t=" + Date.now()).then(r => r.json());
+      const card = $("levCard");
+      card.style.display = "";
+      const pos = lev.position;
+      let levEq = lev.cash;
+      if (pos) {
+        const upnl = pos.qty * (price - pos.entry);
+        levEq += Math.max(pos.margin + upnl, 0);
+        $("levValue").innerHTML = `$${levEq.toFixed(2)} <span style="font-size:14px;color:${upnl >= 0 ? "var(--green)" : "var(--red)"}">${upnl >= 0 ? "+" : "−"}$${Math.abs(upnl).toFixed(2)} open</span>`;
+        $("levDetail").textContent = `long 3x from ${usd(pos.entry)} · stop ${usd(pos.entry * 0.97)} · TP ${usd(pos.entry * 1.06)} · liq ${usd(pos.liq)}`;
+      } else {
+        $("levValue").textContent = usd(levEq);
+        const closed = (lev.trades || []).filter(t => t.side === "sell").length;
+        $("levDetail").textContent = `flat · started $30 · ${closed} closed trades · halts below $10, no refills`;
+      }
+    } catch (e) { /* sleeve file not there yet */ }
+
     $("status").textContent = "⚡ live price stream · trades sync " + new Date().toLocaleTimeString() + " · state can lag the newest commit by a few minutes";
   } catch (e) {
     $("status").textContent = "failed to load: " + e.message;

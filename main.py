@@ -16,7 +16,7 @@ import sys
 import time
 from datetime import datetime
 
-from bot import cryptocom, notify, strategy
+from bot import cryptocom, events, lever, notify, strategy
 from bot.notify import _load_dotenv
 
 _load_dotenv()
@@ -51,18 +51,43 @@ def run_cycle(symbol: str) -> None:
             notify.trade_alert(t, engine.equity())
             pos = None
 
+    blackout = events.active_blackout()
+
     if sig == "buy" and not pos:
-        # bet the full size, capped at whatever cash is actually available
-        size = round(min(TRADE_SIZE_USD, engine.summary()["cash"]), 2)
-        t = engine.buy(symbol, size, note="auto:sma-cross-up")
-        print(f"[{now}] BUY  {t['qty']:.6f} @ {t['price']:,.2f}")
-        notify.trade_alert(t, engine.equity())
+        if blackout:
+            print(f"[{now}] BLACKOUT: buy signal suppressed ({blackout})")
+            notify.send(f"⛔ <b>[SPOT] entry suppressed</b>\nnews blackout: {blackout}")
+        else:
+            # bet the full size, capped at whatever cash is actually available
+            size = round(min(TRADE_SIZE_USD, engine.summary()["cash"]), 2)
+            t = engine.buy(symbol, size, note="auto:sma-cross-up")
+            print(f"[{now}] BUY  {t['qty']:.6f} @ {t['price']:,.2f}")
+            notify.trade_alert(t, engine.equity())
     elif sig == "sell" and pos:
         t = engine.sell(symbol, note="auto:sma-cross-down")
         print(f"[{now}] SELL {t['qty']:.6f} @ {t['price']:,.2f}")
         notify.trade_alert(t, engine.equity())
     else:
         print(f"[{now}] hold (signal={sig}, position={bool(pos)}, last closed={closes[-1]:,.2f})")
+
+    # ---- 3x leveraged paper sleeve: same signals, protective exits first
+    try:
+        exit_trade = lever.check_exits(symbol)
+        if exit_trade:
+            print(f"[{now}] [3X] {exit_trade['note']} @ {exit_trade['price']:,.2f} -> ${exit_trade['usd']:,.2f}")
+            notify.send(f"⚡ <b>[3X sleeve] {exit_trade['note']}</b>\nclosed @ ${exit_trade['price']:,.2f}\n"
+                        f"sleeve equity: ${lever.equity():,.2f}")
+        elif sig == "buy" and not lever.has_position(symbol) and not blackout:
+            t = lever.buy(symbol, note="auto:sma-cross-up")
+            print(f"[{now}] [3X] BUY margin ${t['usd']:,.2f} @ {t['price']:,.2f} ({t['note']})")
+            notify.send(f"⚡ <b>[3X sleeve] BUY</b>\n${t['usd']:,.2f} margin x3 @ ${t['price']:,.2f}\n{t['note']}")
+        elif sig == "sell" and lever.has_position(symbol):
+            t = lever.close("auto:sma-cross-down")
+            print(f"[{now}] [3X] SELL @ {t['price']:,.2f} -> ${t['usd']:,.2f}")
+            notify.send(f"⚡ <b>[3X sleeve] closed on cross-down</b> @ ${t['price']:,.2f}\n"
+                        f"sleeve equity: ${lever.equity():,.2f}")
+    except SystemExit as e:
+        print(f"[{now}] [3X] {e}")
 
 
 def main() -> None:
