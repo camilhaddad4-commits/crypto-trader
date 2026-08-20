@@ -13,7 +13,7 @@ STATE_FILE = Path(__file__).resolve().parent.parent / "portfolio.json"
 
 STARTING_CASH = 100.0        # realistic: what the live account will actually start with
 FEE_RATE = 0.005             # 0.50% per fill — Crypto.com Lv1 spot taker fee (market orders pay taker)
-MAX_ORDER_NOTIONAL = 100     # hard cap per order (user upgraded from $25, 2026-08-19)
+MAX_ORDER_NOTIONAL = 10_000  # sanity ceiling only — full-roll compounding per user 2026-08-20
 MAX_DAILY_LOSS = 10          # kill switch: no new orders once down $10 (10%) on the day
 SINGLE_POSITION = True       # one open bet at a time, ever
 

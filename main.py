@@ -26,7 +26,7 @@ if os.environ.get("LIVE") == "1":
 else:
     from bot import paper as engine
 
-TRADE_SIZE_USD = 100  # what `auto` puts on each buy signal, capped at available cash
+TRADE_SIZE_USD = 10_000  # effectively "all available cash" — full-roll compounding
 
 
 def run_cycle(symbol: str) -> None:
