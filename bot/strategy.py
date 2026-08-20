@@ -11,8 +11,8 @@ from bot import cryptocom
 FAST = 5
 SLOW = 40
 TIMEFRAME = "1D"
-STOP_LOSS_PCT = 0.03    # exit any position 3% below entry, no questions asked
-TAKE_PROFIT_PCT = 0.06  # bank the win 6% above entry — 2:1 reward-to-risk vs the stop
+STOP_LOSS_PCT = 0.06    # exit 6% below entry — widened per user 2026-08-20 (was 3%)
+TAKE_PROFIT_PCT = 0.06  # bank the win 6% above entry — 1:1 vs the widened stop
 
 
 def sma(values: list[float], n: int) -> float:
