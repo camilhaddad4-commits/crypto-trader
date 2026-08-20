@@ -1,0 +1,35 @@
+name: close-lever
+
+on:
+  workflow_dispatch: {}   # triggered from the dashboard's sleeve "Close position" button
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trade
+  cancel-in-progress: false
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Close 3x sleeve position
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py close-lever
+      - name: Commit state
+        run: |
+          git config user.name "paper-trade-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add lever_portfolio.json
+          git diff --cached --quiet || git commit -m "manual sleeve close $(date -u +%FT%TZ)"
+          git pull --rebase
+          git push

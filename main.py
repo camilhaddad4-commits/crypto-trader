@@ -167,6 +167,16 @@ def main() -> None:
         except SystemExit as e:
             print(f"nothing to close: {e}")
 
+    elif cmd == "close-lever":
+        # manual sleeve exit, triggered from the dashboard via the close-lever workflow
+        try:
+            t = lever.close("manual:dashboard-close")
+            print(f"closed 3x sleeve @ {t['price']:,.2f} -> ${t['usd']:,.2f}")
+            notify.send(f"⚡ <b>[3X sleeve] manually closed</b> @ ${t['price']:,.2f}\n"
+                        f"returned ${t['usd']:,.2f} · sleeve equity ${lever.equity():,.2f}")
+        except SystemExit as e:
+            print(f"nothing to close: {e}")
+
     elif cmd == "auto-once":
         # single cycle for scheduled runners (GitHub Actions cron)
         symbol = args[1] if len(args) > 1 else "BTC_USD"
