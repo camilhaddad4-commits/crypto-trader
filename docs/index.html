@@ -119,15 +119,15 @@
     .bento {
       grid-template-columns: repeat(4, 1fr); gap: 14px;
       grid-template-areas:
-        "hero hero cash btc"
-        "hero hero pos  pos"
-        "lev  lev  pos  pos"
+        "hero hero pos pos"
+        "cash btc  pos pos"
+        "lev  lev  lev lev"
         "trades trades trades trades";
     }
     .bento.noPos {
       grid-template-areas:
         "hero hero cash btc"
-        "hero hero lev  lev"
+        "lev  lev  lev  lev"
         "trades trades trades trades";
     }
     #heroCard { grid-area: hero; display: flex; }
@@ -135,8 +135,10 @@
     #cashCard { grid-area: cash; }
     #btcCard { grid-area: btc; }
     #posCard { grid-area: pos; }
-    #levCard { grid-area: lev; display: flex; }
-    #levCard .core { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    #levCard { grid-area: lev; }
+    #levCard .core { display: grid; grid-template-columns: 340px 1fr; gap: 6px 32px; align-items: center; }
+    #levCard .label { grid-column: 1 / -1; }
+    #levMeter { margin-top: 0; }
     #tradesCard { grid-area: trades; }
     .hero-value { font-size: clamp(48px, 5vw, 68px); }
     header { text-align: center; }
@@ -309,8 +311,10 @@
 
     <div class="shell span2 reveal" id="levCard" style="display:none"><div class="core">
       <div class="label">⚡ 3x leverage sleeve · paper</div>
-      <div class="stat-value num" id="levValue">—</div>
-      <div class="hint" id="levDetail">—</div>
+      <div id="levLeft">
+        <div class="stat-value num" id="levValue">—</div>
+        <div class="hint" id="levDetail">—</div>
+      </div>
       <div class="meter" id="levMeter" style="display:none">
         <div class="meter-track">
           <div class="meter-fill" id="levFill"></div>
