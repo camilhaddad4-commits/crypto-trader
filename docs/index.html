@@ -310,6 +310,18 @@
       <div class="label">⚡ 3x leverage sleeve · paper</div>
       <div class="stat-value num" id="levValue">—</div>
       <div class="hint" id="levDetail">—</div>
+      <div class="meter" id="levMeter" style="display:none">
+        <div class="meter-track">
+          <div class="meter-fill" id="levFill"></div>
+          <div class="meter-tick" id="levTick"></div>
+        </div>
+        <div class="meter-labels">
+          <span id="levStop" style="color:var(--red)">stop</span>
+          <span id="levEntry">entry</span>
+          <span id="levTp" style="color:var(--green)">TP</span>
+        </div>
+        <div class="hint" id="levProgress" style="margin-top:10px">—</div>
+      </div>
     </div></div>
 
     <div class="shell span2 reveal" id="tradesCard"><div class="core">
@@ -383,7 +395,7 @@ async function fetchPrice() {
 }
 
 /* ---- live price stream: Crypto.com public WebSocket, ticks without refreshing ---- */
-let lastPF = null, lastPrice = null;
+let lastPF = null, lastPrice = null, lastLev = null;
 function startStream() {
   let ws;
   try { ws = new WebSocket("wss://stream.crypto.com/exchange/v1/market"); } catch { return; }
@@ -441,6 +453,37 @@ function renderPrices(price) {
         : `below break-even · ${usd(toTP)} from TP · <b style="color:var(--red)">${usd(price - stop)}</b> above the stop`;
   } else {
     $("posCard").style.display = "none";
+  }
+
+  // ---- 3x sleeve card: same live treatment as the spot position
+  if (lastLev) {
+    $("levCard").style.display = "";
+    const lp = lastLev.position;
+    if (lp) {
+      const upnl = lp.qty * (price - lp.entry);
+      const levEq = lastLev.cash + Math.max(lp.margin + upnl, 0);
+      const lstop = lp.entry * 0.97, ltp = lp.entry * 1.06;
+      $("levValue").innerHTML = `BTC/USD · $${levEq.toFixed(2)} <span style="font-size:15px;color:${upnl >= 0 ? "var(--green)" : "var(--red)"}">${upnl >= 0 ? "+" : "−"}$${Math.abs(upnl).toFixed(2)}</span>`;
+      $("levDetail").textContent = `$${(lp.notional_entry).toFixed(0)} notional · long 3x @ ${usd(lp.entry)} · liq ${usd(lp.liq)}`;
+      $("levMeter").style.display = "";
+      const lrange = ltp - lstop;
+      $("levFill").style.transform = `scaleX(${Math.min(Math.max((price - lstop) / lrange, 0.015), 1)})`;
+      $("levTick").style.left = ((lp.entry - lstop) / lrange * 100) + "%";
+      $("levStop").textContent = "stop " + usd(lstop);
+      $("levEntry").textContent = "entry " + usd(lp.entry);
+      $("levTp").textContent = "TP " + usd(ltp);
+      const ltoTP = ltp - price, lpct = Math.max((price - lp.entry) / (ltp - lp.entry) * 100, 0);
+      $("levProgress").innerHTML = price >= ltp
+        ? `🎯 take-profit reached — closes next cycle (≈ +$${(lp.margin * 0.18).toFixed(2)})`
+        : price >= lp.entry
+          ? `<b style="color:var(--green)">${lpct.toFixed(1)}%</b> of the way to TP · win ≈ +$${(lp.margin * 0.18).toFixed(2)} · stop costs ≈ −$${(lp.margin * 0.09).toFixed(2)}`
+          : `below entry · <b style="color:var(--red)">−$${Math.abs(upnl).toFixed(2)}</b> open · stop at ${usd(lstop)} ≈ −$${(lp.margin * 0.09).toFixed(2)}`;
+    } else {
+      const closed = (lastLev.trades || []).filter(t => t.side === "sell").length;
+      $("levValue").textContent = usd(lastLev.cash);
+      $("levDetail").textContent = `flat · waiting for signal · ${closed} closed trades · halts below $33, no refills`;
+      $("levMeter").style.display = "none";
+    }
   }
 
   const equity = pf.cash + posValue, pnl = equity - START;
@@ -520,23 +563,10 @@ async function load() {
       row.addEventListener("click", () => row.classList.toggle("open"));
       box.appendChild(row);
     }
-    // 3x sleeve card
+    // 3x sleeve state (rendered live in renderPrices)
     try {
-      const lev = await fetch("https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/lever_portfolio.json?t=" + Date.now()).then(r => r.json());
-      const card = $("levCard");
-      card.style.display = "";
-      const pos = lev.position;
-      let levEq = lev.cash;
-      if (pos) {
-        const upnl = pos.qty * (price - pos.entry);
-        levEq += Math.max(pos.margin + upnl, 0);
-        $("levValue").innerHTML = `$${levEq.toFixed(2)} <span style="font-size:14px;color:${upnl >= 0 ? "var(--green)" : "var(--red)"}">${upnl >= 0 ? "+" : "−"}$${Math.abs(upnl).toFixed(2)} open</span>`;
-        $("levDetail").textContent = `long 3x from ${usd(pos.entry)} · stop ${usd(pos.entry * 0.97)} · TP ${usd(pos.entry * 1.06)} · liq ${usd(pos.liq)}`;
-      } else {
-        $("levValue").textContent = usd(levEq);
-        const closed = (lev.trades || []).filter(t => t.side === "sell").length;
-        $("levDetail").textContent = `flat · started $100 · ${closed} closed trades · halts below $33, no refills`;
-      }
+      lastLev = await fetch("https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/lever_portfolio.json?t=" + Date.now()).then(r => r.json());
+      renderPrices(price);
     } catch (e) { /* sleeve file not there yet */ }
 
     $("status").textContent = "⚡ live price stream · trades sync " + new Date().toLocaleTimeString() + " · state can lag the newest commit by a few minutes";
