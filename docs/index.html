@@ -260,9 +260,10 @@
   <div class="bento">
     <div class="shell span2 reveal" id="heroCard">
       <div class="core">
-        <div class="label">Equity</div>
+        <div class="label">Total equity · both accounts</div>
         <div class="hero-value num" id="equity">$0.00</div>
         <span class="delta up" id="pnl">—</span>
+        <div class="hint num" id="eqSplit" style="margin-top:8px">—</div>
         <div class="mini-grid">
           <div class="mini"><div class="label">Round trips</div><div class="mini-value num" id="statTrades">—</div></div>
           <div class="mini"><div class="label">Win rate</div><div class="mini-value num" id="statWin">—</div></div>
@@ -462,12 +463,14 @@ function renderPrices(price) {
   }
 
   // ---- 3x sleeve card: same live treatment as the spot position
+  let sleeveEq = 100;  // baseline until the sleeve file loads
   if (lastLev) {
     $("levCard").style.display = "";
     const lp = lastLev.position;
     if (lp) {
       const upnl = lp.qty * (price - lp.entry);
       const levEq = lastLev.cash + Math.max(lp.margin + upnl, 0);
+      sleeveEq = levEq;
       const lstop = lp.entry * 0.97, ltp = lp.entry * 1.06;
       $("levValue").innerHTML = `BTC/USD · $${levEq.toFixed(2)} <span style="font-size:15px;color:${upnl >= 0 ? "var(--green)" : "var(--red)"}">${upnl >= 0 ? "+" : "−"}$${Math.abs(upnl).toFixed(2)}</span>`;
       $("levDetail").textContent = `$${(lp.notional_entry).toFixed(0)} notional · long 3x @ ${usd(lp.entry)} · liq ${usd(lp.liq)}`;
@@ -486,17 +489,22 @@ function renderPrices(price) {
           : `below entry · <b style="color:var(--red)">−$${Math.abs(upnl).toFixed(2)}</b> open · stop at ${usd(lstop)} ≈ −$${(lp.margin * 0.09).toFixed(2)}`;
     } else {
       const closed = (lastLev.trades || []).filter(t => t.side === "sell").length;
+      sleeveEq = lastLev.cash;
       $("levValue").textContent = usd(lastLev.cash);
       $("levDetail").textContent = `flat · waiting for signal · ${closed} closed trades · halts below $33, no refills`;
       $("levMeter").style.display = "none";
     }
   }
 
-  const equity = pf.cash + posValue, pnl = equity - START;
+  // combined book: $100 spot + $100 sleeve = $200 baseline
+  const TOTAL_START = 200;
+  const spotEq = pf.cash + posValue;
+  const equity = spotEq + sleeveEq, pnl = equity - TOTAL_START;
   $("equity").textContent = usd(equity);
   const pd = $("pnl");
   pd.className = "delta " + (pnl >= 0 ? "up" : "down");
-  pd.textContent = `${pnl >= 0 ? "▲" : "▼"} ${usd(Math.abs(pnl))} · ${(pnl / START * 100).toFixed(2)}% all-time`;
+  pd.textContent = `${pnl >= 0 ? "▲" : "▼"} ${usd(Math.abs(pnl))} · ${(pnl / TOTAL_START * 100).toFixed(2)}% all-time`;
+  $("eqSplit").textContent = `spot ${usd(spotEq)} · 3x sleeve ${usd(sleeveEq)}`;
   // log scale: $100 -> $1M is 4 decades, each 10x step earns a quarter of the bar
   const frac = Math.max(Math.log10(Math.max(equity, 100) / 100) / 4, 0.004);
   $("missionFill").style.transform = `scaleX(${frac})`;
