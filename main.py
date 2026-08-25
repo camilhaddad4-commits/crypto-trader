@@ -70,26 +70,38 @@ def run_cycle(symbol: str) -> None:
     else:
         print(f"[{now}] hold (signal={sig}, position={bool(pos)}, last closed={closes[-1]:,.2f})")
 
-    # ---- 3x leveraged paper sleeve: its OWN 4h signal, protective exits first
+    # ---- 3x leveraged paper sleeve: scans BTC/ETH/SOL on 4h, one position at a time
     try:
-        closes_4h = [c["close"] for c in cryptocom.candles(symbol, lever.TIMEFRAME, 300)][:-1]
-        sig_lev = strategy.signal(closes_4h)
-        exit_trade = lever.check_exits(symbol)
+        exit_trade = lever.check_exits()
         if exit_trade:
-            print(f"[{now}] [3X] {exit_trade['note']} @ {exit_trade['price']:,.2f} -> ${exit_trade['usd']:,.2f}")
-            notify.send(f"⚡ <b>[3X sleeve] {exit_trade['note']}</b>\nclosed @ ${exit_trade['price']:,.2f}\n"
-                        f"sleeve equity: ${lever.equity():,.2f}")
-        elif sig_lev == "buy" and not lever.has_position(symbol) and not blackout:
-            t = lever.buy(symbol, note="auto:sma-cross-up-4h")
-            print(f"[{now}] [3X] BUY margin ${t['usd']:,.2f} @ {t['price']:,.2f} ({t['note']})")
-            notify.send(f"⚡ <b>[3X sleeve] BUY (4h signal)</b>\n${t['usd']:,.2f} margin x3 @ ${t['price']:,.2f}\n{t['note']}")
-        elif sig_lev == "sell" and lever.has_position(symbol):
-            t = lever.close("auto:sma-cross-down-4h")
-            print(f"[{now}] [3X] SELL @ {t['price']:,.2f} -> ${t['usd']:,.2f}")
-            notify.send(f"⚡ <b>[3X sleeve] closed on 4h cross-down</b> @ ${t['price']:,.2f}\n"
+            print(f"[{now}] [3X] {exit_trade['note']} {exit_trade['symbol']} @ {exit_trade['price']:,.2f} -> ${exit_trade['usd']:,.2f}")
+            notify.send(f"⚡ <b>[3X sleeve] {exit_trade['note']}</b>\n{exit_trade['symbol']} closed @ ${exit_trade['price']:,.2f}\n"
                         f"sleeve equity: ${lever.equity():,.2f}")
         else:
-            print(f"[{now}] [3X] hold (4h signal={sig_lev}, position={lever.has_position(symbol)})")
+            held = lever.position_symbol()
+            if held:
+                closes_4h = [c["close"] for c in cryptocom.candles(held, lever.TIMEFRAME, 300)][:-1]
+                if strategy.signal(closes_4h) == "sell":
+                    t = lever.close("auto:sma-cross-down-4h")
+                    print(f"[{now}] [3X] SELL {held} @ {t['price']:,.2f} -> ${t['usd']:,.2f}")
+                    notify.send(f"⚡ <b>[3X sleeve] closed on 4h cross-down</b>\n{held} @ ${t['price']:,.2f}\n"
+                                f"sleeve equity: ${lever.equity():,.2f}")
+                else:
+                    print(f"[{now}] [3X] holding {held}")
+            elif blackout:
+                print(f"[{now}] [3X] flat, blackout active ({blackout})")
+            else:
+                entered = False
+                for lsym in lever.SYMBOLS:
+                    closes_4h = [c["close"] for c in cryptocom.candles(lsym, lever.TIMEFRAME, 300)][:-1]
+                    if strategy.signal(closes_4h) == "buy":
+                        t = lever.buy(lsym, note="auto:sma-cross-up-4h")
+                        print(f"[{now}] [3X] BUY {lsym} margin ${t['usd']:,.2f} @ {t['price']:,.2f} ({t['note']})")
+                        notify.send(f"⚡ <b>[3X sleeve] BUY (4h signal)</b>\n{lsym}: ${t['usd']:,.2f} margin x3 @ ${t['price']:,.2f}\n{t['note']}")
+                        entered = True
+                        break
+                if not entered:
+                    print(f"[{now}] [3X] flat, no 4h cross on BTC/ETH/SOL")
     except SystemExit as e:
         print(f"[{now}] [3X] {e}")
 

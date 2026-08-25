@@ -15,6 +15,7 @@ from bot import cryptocom
 
 STATE_FILE = Path(__file__).resolve().parent.parent / "lever_portfolio.json"
 
+SYMBOLS = ["BTC_USD", "ETH_USD", "SOL_USD"]  # scans all three, one position at a time
 LEVERAGE = 3
 STARTING_CASH = 100.0
 FEE_RATE = 0.0004        # taker, charged on notional per side
@@ -100,13 +101,13 @@ def close(reason: str, exit_price: float | None = None) -> dict:
     return trade
 
 
-def check_exits(symbol: str) -> dict | None:
-    """Liquidation first, then stop, then TP. Returns the closing trade or None."""
+def check_exits(symbol: str | None = None) -> dict | None:
+    """Liquidation first, then stop, then TP — on whatever symbol is held."""
     state = _load()
     pos = state["position"]
-    if not pos or pos["symbol"] != symbol:
+    if not pos:
         return None
-    bid = cryptocom.ticker(symbol)["bid"]
+    bid = cryptocom.ticker(pos["symbol"])["bid"]
     if bid <= pos["liq"]:
         return close("auto:LIQUIDATED", exit_price=pos["liq"])
     if bid <= pos["entry"] * (1 - STOP_LOSS_PCT):
@@ -119,6 +120,11 @@ def check_exits(symbol: str) -> dict | None:
 def has_position(symbol: str) -> bool:
     pos = _load()["position"]
     return bool(pos and pos["symbol"] == symbol)
+
+
+def position_symbol() -> str | None:
+    pos = _load()["position"]
+    return pos["symbol"] if pos else None
 
 
 def summary() -> dict:
