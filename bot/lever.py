@@ -21,8 +21,10 @@ FEE_RATE = 0.0004        # taker, charged on notional per side
 FUNDING_8H = 0.0001      # 0.01% per 8h on notional while position open
 MMR = 0.01               # maintenance margin rate (approximation)
 HALT_FLOOR = 33.0        # sleeve equity below this: no new positions, ever
-STOP_LOSS_PCT = 0.06     # -6% price = -18% margin (widened per user 2026-08-20)
-TAKE_PROFIT_PCT = 0.06   # +6% price = +18% margin
+STOP_LOSS_PCT = 0.03     # -3% price = -9% margin (4h regime, sweep 2026-08-23)
+TAKE_PROFIT_PCT = 0.06   # +6% price = +18% margin — 2:1 vs the stop
+TIMEFRAME = "4h"         # sleeve trades 4h candles (perp fees make it viable; sweep 2026-08-23:
+                         # SMA5/40 s3/t6 positive on BTC/ETH/SOL; spot stays on its proven daily)
 
 
 def _load() -> dict:

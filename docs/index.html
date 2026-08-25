@@ -310,7 +310,7 @@
     </div></div>
 
     <div class="shell span2 reveal" id="levCard" style="display:none"><div class="core">
-      <div class="label">⚡ 3x leverage sleeve · paper</div>
+      <div class="label">⚡ 3x leverage sleeve · 4h signals · paper</div>
       <div id="levLeft">
         <div class="stat-value num" id="levValue">—</div>
         <div class="hint" id="levDetail">—</div>
@@ -475,7 +475,7 @@ function renderPrices(price) {
       const upnl = lp.qty * (price - lp.entry);
       const levEq = lastLev.cash + Math.max(lp.margin + upnl, 0);
       sleeveEq = levEq;
-      const lstop = lp.entry * 0.94, ltp = lp.entry * 1.06;
+      const lstop = lp.entry * 0.97, ltp = lp.entry * 1.06;
       $("levValue").innerHTML = `BTC/USD · $${levEq.toFixed(2)} <span style="font-size:15px;color:${upnl >= 0 ? "var(--green)" : "var(--red)"}">${upnl >= 0 ? "+" : "−"}$${Math.abs(upnl).toFixed(2)}</span>`;
       $("levDetail").textContent = `$${(lp.notional_entry).toFixed(0)} notional · long 3x @ ${usd(lp.entry)} · liq ${usd(lp.liq)}`;
       $("levMeter").style.display = "";
@@ -489,8 +489,8 @@ function renderPrices(price) {
       $("levProgress").innerHTML = price >= ltp
         ? `🎯 take-profit reached — closes next cycle (≈ +$${(lp.margin * 0.18).toFixed(2)})`
         : price >= lp.entry
-          ? `<b style="color:var(--green)">${lpct.toFixed(1)}%</b> of the way to TP · win ≈ +$${(lp.margin * 0.18).toFixed(2)} · stop costs ≈ −$${(lp.margin * 0.18).toFixed(2)}`
-          : `below entry · <b style="color:var(--red)">−$${Math.abs(upnl).toFixed(2)}</b> open · stop at ${usd(lstop)} ≈ −$${(lp.margin * 0.18).toFixed(2)}`;
+          ? `<b style="color:var(--green)">${lpct.toFixed(1)}%</b> of the way to TP · win ≈ +$${(lp.margin * 0.18).toFixed(2)} · stop costs ≈ −$${(lp.margin * 0.09).toFixed(2)}`
+          : `below entry · <b style="color:var(--red)">−$${Math.abs(upnl).toFixed(2)}</b> open · stop at ${usd(lstop)} ≈ −$${(lp.margin * 0.09).toFixed(2)}`;
     } else {
       const closed = (lastLev.trades || []).filter(t => t.side === "sell").length;
       sleeveEq = lastLev.cash;
