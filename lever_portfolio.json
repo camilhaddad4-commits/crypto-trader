@@ -1,6 +1,14 @@
 {
-  "cash": 119.2861655598331,
-  "position": null,
+  "cash": 0.0,
+  "position": {
+    "symbol": "SOL_USD",
+    "margin": 119.1430221611613,
+    "qty": 3.468965652185918,
+    "entry": 103.16,
+    "notional_entry": 357.8584966794993,
+    "liq": 69.80493333333334,
+    "opened_ts": 1788216550.3463085
+  },
   "trades": [
     {
       "time": "2026-08-20",
@@ -19,6 +27,15 @@
       "price": 77056.0,
       "qty": 0.004147424345795652,
       "note": "auto:take-profit-3x pnl=+19.58 funding=0.050"
+    },
+    {
+      "time": "2026-08-31",
+      "side": "buy",
+      "symbol": "SOL_USD",
+      "usd": 119.29,
+      "price": 103.16,
+      "qty": 3.468965652185918,
+      "note": "auto:sma-cross-up-4h 3x liq=70"
     }
   ],
   "day": "2026-08-20",
