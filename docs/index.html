@@ -518,6 +518,69 @@ function renderPrices(price) {
   $("missionSub").textContent = `${usd(equity)} · next milestone ${next[1]} (${usd(next[0] - equity)} to go)`;
 }
 
+function tripsFrom(trades, isLev) {
+  const trips = [];
+  let open = null;
+  for (const t of trades || []) {
+    if (t.side === "buy") {
+      open = { lev: isLev, symbol: t.symbol, buyUsd: t.usd, buyPrice: t.price,
+               buyNote: t.note, opened: t.time, closed: null };
+      trips.push(open);
+    } else if (open) {
+      open.sellUsd = t.usd; open.sellPrice = t.price;
+      open.sellNote = t.note; open.closed = t.time;
+      open.pl = t.usd - open.buyUsd;
+      open = null;
+    }
+  }
+  return trips;
+}
+
+/* combined ledger: stats tiles + trades list across BOTH books */
+function renderLedger() {
+  if (!lastPF) return;
+  const trips = tripsFrom(lastPF.trades, false).concat(lastLev ? tripsFrom(lastLev.trades, true) : []);
+  let roundTrips = 0, wins = 0, realized = 0, fees = 0;
+  for (const tr of trips) {
+    const feeRate = tr.lev ? 0.0012 : 0.005;  // sleeve fees hit notional (3x), spot pays 0.5%/fill
+    fees += tr.buyUsd * feeRate + (tr.closed !== null ? tr.sellUsd * feeRate : 0);
+    if (tr.closed !== null) { roundTrips++; realized += tr.pl; if (tr.pl > 0) wins++; }
+  }
+  $("statTrades").textContent = roundTrips;
+  $("statWin").textContent = roundTrips ? (wins / roundTrips * 100).toFixed(0) + "%" : "—";
+  $("statRealized").innerHTML = `<span style="color:${realized >= 0 ? "var(--green)" : "var(--red)"}">${realized >= 0 ? "+" : "−"}${usd(Math.abs(realized)).slice(1)}</span>`;
+  $("statFees").textContent = usd(fees);
+
+  trips.sort((a, b) => (b.closed || b.opened).localeCompare(a.closed || a.opened));
+  const box = $("trades"); box.innerHTML = "";
+  $("noTrades").style.display = trips.length ? "none" : "";
+  for (const tr of trips) {
+    const row = document.createElement("div");
+    row.className = "trade";
+    const isOpen = tr.closed === null;
+    const verdict = isOpen
+      ? `<span class="badge buy">OPEN</span>`
+      : tr.pl >= 0
+        ? `<span class="badge buy">WIN</span>`
+        : `<span class="badge sell">LOSS</span>`;
+    const tag = tr.lev ? `⚡3x ${tr.symbol.split("_")[0]} · ` : "";
+    const plText = isOpen
+      ? `<span style="color:rgba(255,255,255,.35)">riding…</span>`
+      : `<span style="color:${tr.pl >= 0 ? "var(--green)" : "var(--red)"};font-weight:600">${tr.pl >= 0 ? "+" : "−"}${usd(Math.abs(tr.pl)).slice(1)} · ${(tr.pl / tr.buyUsd * 100).toFixed(1)}%</span>`;
+    row.innerHTML =
+      verdict +
+      `<span class="num" style="font-size:14px">${tag}${usd(tr.buyUsd)} @ ${usd(tr.buyPrice)}` +
+      (isOpen ? "" : ` <span style="color:rgba(255,255,255,.35)">→</span> ${usd(tr.sellPrice)}`) +
+      ` &nbsp;${plText}</span>` +
+      `<span style="color:rgba(255,255,255,.35);font-size:12px">${tr.closed || tr.opened}</span>` +
+      `<span class="trade-note">in: ${tr.buyNote || "manual"} (${tr.opened})` +
+      (isOpen ? "" : ` · out: ${tr.sellNote || "manual"} (${tr.closed}) · sold for ${usd(tr.sellUsd)}`) +
+      `</span>`;
+    row.addEventListener("click", () => row.classList.toggle("open"));
+    box.appendChild(row);
+  }
+}
+
 async function load() {
   const btn = $("refreshBtn"); btn.classList.add("busy");
   try {
@@ -529,59 +592,6 @@ async function load() {
     lastPF = pf;
     renderPrices(price);
 
-    // hero mini-stats: pair each sell with the buys before it (single-position system)
-    let cost = 0, roundTrips = 0, wins = 0, realized = 0, fees = 0;
-    for (const t of pf.trades || []) {
-      fees += t.usd * 0.005;
-      if (t.side === "buy") cost += t.usd;
-      else { const pl = t.usd - cost; realized += pl; roundTrips++; if (pl > 0) wins++; cost = 0; }
-    }
-    $("statTrades").textContent = roundTrips;
-    $("statWin").textContent = roundTrips ? (wins / roundTrips * 100).toFixed(0) + "%" : "—";
-    $("statRealized").innerHTML = `<span style="color:${realized >= 0 ? "var(--green)" : "var(--red)"}">${realized >= 0 ? "+" : "−"}${usd(Math.abs(realized)).slice(1)}</span>`;
-    $("statFees").textContent = usd(fees);
-
-    // group raw fills into round trips: each buy pairs with the sell that closes it
-    const trips = [];
-    let openTrip = null;
-    for (const t of pf.trades || []) {
-      if (t.side === "buy") {
-        openTrip = { symbol: t.symbol, buyUsd: t.usd, buyPrice: t.price,
-                     buyNote: t.note, opened: t.time, closed: null };
-        trips.push(openTrip);
-      } else if (openTrip) {
-        openTrip.sellUsd = t.usd; openTrip.sellPrice = t.price;
-        openTrip.sellNote = t.note; openTrip.closed = t.time;
-        openTrip.pl = t.usd - openTrip.buyUsd;
-        openTrip = null;
-      }
-    }
-    const box = $("trades"); box.innerHTML = "";
-    $("noTrades").style.display = trips.length ? "none" : "";
-    for (const tr of trips.slice().reverse()) {
-      const row = document.createElement("div");
-      row.className = "trade";
-      const isOpen = tr.closed === null;
-      const verdict = isOpen
-        ? `<span class="badge buy">OPEN</span>`
-        : tr.pl >= 0
-          ? `<span class="badge buy">WIN</span>`
-          : `<span class="badge sell">LOSS</span>`;
-      const plText = isOpen
-        ? `<span style="color:rgba(255,255,255,.35)">riding…</span>`
-        : `<span style="color:${tr.pl >= 0 ? "var(--green)" : "var(--red)"};font-weight:600">${tr.pl >= 0 ? "+" : "−"}${usd(Math.abs(tr.pl)).slice(1)} · ${(tr.pl / tr.buyUsd * 100).toFixed(1)}%</span>`;
-      row.innerHTML =
-        verdict +
-        `<span class="num" style="font-size:14px">${usd(tr.buyUsd)} @ ${usd(tr.buyPrice)}` +
-        (isOpen ? "" : ` <span style="color:rgba(255,255,255,.35)">→</span> ${usd(tr.sellPrice)}`) +
-        ` &nbsp;${plText}</span>` +
-        `<span style="color:rgba(255,255,255,.35);font-size:12px">${tr.closed || tr.opened}</span>` +
-        `<span class="trade-note">in: ${tr.buyNote || "manual"} (${tr.opened})` +
-        (isOpen ? "" : ` · out: ${tr.sellNote || "manual"} (${tr.closed}) · sold for ${usd(tr.sellUsd)}`) +
-        `</span>`;
-      row.addEventListener("click", () => row.classList.toggle("open"));
-      box.appendChild(row);
-    }
     // 3x sleeve state (rendered live in renderPrices)
     try {
       lastLev = await fetch("https://raw.githubusercontent.com/camilhaddad4-commits/crypto-trader/main/lever_portfolio.json?t=" + Date.now()).then(r => r.json());
@@ -592,6 +602,8 @@ async function load() {
       }
       renderPrices(price);
     } catch (e) { /* sleeve file not there yet */ }
+
+    renderLedger();
 
     $("status").textContent = "⚡ live price stream · trades sync " + new Date().toLocaleTimeString() + " · state can lag the newest commit by a few minutes";
   } catch (e) {
