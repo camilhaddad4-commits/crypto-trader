@@ -1,6 +1,14 @@
 {
-  "cash": 95.42111904075963,
-  "position": null,
+  "cash": 0.0,
+  "position": {
+    "symbol": "BTC_USD",
+    "margin": 95.30661369791072,
+    "qty": 0.0035598041213243878,
+    "entry": 80415.48,
+    "notional_entry": 286.2633571222789,
+    "liq": 54414.4748,
+    "opened_ts": 1793197395.7261627
+  },
   "trades": [
     {
       "time": "2026-08-20",
@@ -181,6 +189,15 @@
       "price": 103.37,
       "qty": 2.912215595705329,
       "note": "auto:sma-cross-down-4h pnl=-6.73 funding=0.196"
+    },
+    {
+      "time": "2026-10-28",
+      "side": "buy",
+      "symbol": "BTC_USD",
+      "usd": 95.42,
+      "price": 80415.48,
+      "qty": 0.0035598041213243878,
+      "note": "auto:sma-cross-up-4h 3x liq=54,414"
     }
   ],
   "day": "2026-08-20",
