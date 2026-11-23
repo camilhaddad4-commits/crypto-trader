@@ -1,6 +1,14 @@
 {
-  "cash": 84.04420358302563,
-  "position": null,
+  "cash": 0.0,
+  "position": {
+    "symbol": "ETH_USD",
+    "margin": 83.94335053872601,
+    "qty": 0.14682347401314713,
+    "entry": 1717.25,
+    "notional_entry": 252.1326107490769,
+    "liq": 1162.0058333333334,
+    "opened_ts": 1795470300.6081939
+  },
   "trades": [
     {
       "time": "2026-08-20",
@@ -217,6 +225,15 @@
       "price": 2248.12,
       "qty": 0.12095882340213782,
       "note": "auto:stop-loss-3x pnl=-9.39 funding=0.116"
+    },
+    {
+      "time": "2026-11-23",
+      "side": "buy",
+      "symbol": "ETH_USD",
+      "usd": 84.04,
+      "price": 1717.25,
+      "qty": 0.14682347401314713,
+      "note": "auto:sma-cross-up-4h 3x liq=1,162"
     }
   ],
   "day": "2026-08-20",
